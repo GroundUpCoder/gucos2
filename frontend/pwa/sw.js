@@ -13,7 +13,11 @@ const CACHE = 'gucos-__RUNTIME_GENERATION__';
 const IMMUTABLE = [/^\/packages\/pool\//, /^\/os\/os-system\.[0-9a-f]{16}\.img$/, /^\/runtime\/[0-9a-f]{16}\//];
 
 self.addEventListener('install', () => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+self.addEventListener('activate', (e) => { e.waitUntil((async () => {
+  const names = await caches.keys();
+  await Promise.all(names.filter(name => name.startsWith('gucos-') && name !== CACHE).map(name => caches.delete(name)));
+  await self.clients.claim();
+})()); });
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;

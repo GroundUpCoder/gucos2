@@ -80,6 +80,7 @@ export default function SettingsPage() {
   const [keepAwake, setKeepAwake] = useState(() => get('gucos2:keep-awake', 'false') === 'true');
   const [autoScroll, setAutoScrollState] = useState(getAutoScroll);
   const [instructionsSaved, setInstructionsSaved] = useState(false);
+  const [storagePersistence,setStoragePersistence]=useState(()=>get('gucos2:storage-persisted','pending'));
 
   const save = (key: string, value: string) => { if (value) localStorage.setItem(key, value); else localStorage.removeItem(key); };
 
@@ -90,6 +91,7 @@ export default function SettingsPage() {
   // labeled button, no confirmation — key removal is reversible by re-entry and
   // needs no dialog, unlike destructive thread/file deletion).
   useEffect(() => { localStorage.removeItem('gucos2:elevenlabs-voice'); localStorage.removeItem('gucos2:speak-mode'); }, []);
+  useEffect(()=>{const update=(event:Event)=>setStoragePersistence(String((event as CustomEvent).detail));addEventListener('gucos2:storage-persistence',update);return()=>removeEventListener('gucos2:storage-persistence',update)},[]);
 
   return (
     <div className="flex-1 overflow-y-auto" data-testid="settings-page">
@@ -224,6 +226,7 @@ export default function SettingsPage() {
                 <dt className="text-muted-foreground">Mount</dt><dd>{state.mode}</dd>
               </>
             )}
+            <dt className="text-muted-foreground">Persistent storage</dt><dd data-testid="storage-persistence">{storagePersistence==='true'?'granted':storagePersistence==='false'?'refused by browser':storagePersistence==='error'?'request failed':'requesting…'}</dd>
           </dl>
           <div className="rounded-lg border bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
             Files, terminals, compilers, packages, processes, graphical surfaces, Chat journals, and agent tools

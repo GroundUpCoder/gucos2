@@ -35,6 +35,7 @@ function isImmutable(urlPath: string): boolean {
 function setOsHeaders(res: express.Response, urlPath: string): void {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://api.deepseek.com https://api.elevenlabs.io; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
   res.setHeader(
     'Cache-Control',
     isImmutable(urlPath) ? 'public, max-age=31536000, immutable' : 'no-cache',

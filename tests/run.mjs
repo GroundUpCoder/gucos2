@@ -33,6 +33,23 @@ const MEMBERS = [
   { name: 'test_boot', cmd: process.execPath, args: [path.join(HERE, 'test_boot.mjs')], cwd: APP, heavy: true },
 ];
 
+// Environment-dependent contracts are declared here, not silently skipped.
+// Run them explicitly after supplying their required inputs.
+const ACCEPTANCE_MEMBERS = [
+  { name: 'test_stt_real_media', file: 'test_stt_real_media.mjs', requires: ['OS_STT_AUDIO'] },
+];
+
+const registeredTestFiles = new Set([
+  ...MEMBERS.flatMap(member => member.args?.filter(arg => typeof arg === 'string' && /test_[^/]+\.mjs$/.test(arg)).map(arg => path.basename(arg)) ?? []),
+  ...ACCEPTANCE_MEMBERS.map(member => member.file),
+]);
+const diskTestFiles = fs.readdirSync(HERE).filter(name => /^test_.*\.mjs$/.test(name));
+const unregistered = diskTestFiles.filter(name => !registeredTestFiles.has(name));
+const missing = [...registeredTestFiles].filter(name => !diskTestFiles.includes(name));
+if (unregistered.length || missing.length) {
+  throw new Error(`test registry mismatch; unregistered=[${unregistered.join(', ')}], missing=[${missing.join(', ')}]`);
+}
+
 const selected = MEMBERS.filter((m) => !(noBoot && m.heavy));
 const results = [];
 const t0 = Date.now();
@@ -62,6 +79,7 @@ const summary = {
   passed,
   failed,
   omitted: MEMBERS.filter((m) => !selected.includes(m)).map((m) => m.name),
+  acceptance: ACCEPTANCE_MEMBERS.map(member => ({ ...member, executed: false })),
   results,
   elapsedMs: Date.now() - t0,
 };

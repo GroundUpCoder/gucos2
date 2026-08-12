@@ -6,10 +6,9 @@ const APP=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const require=createRequire(path.join(APP,'frontend','package.json'));
 const { chromium }=require('playwright-core');
 const chrome='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-// GUCOS2_DIST pins the server to THIS checkout's dist: the backend's
-// default resolves ~/git/gucos2, so without it a worktree gate silently
-// serves the main tree's stale bundle (as test_backend already knew).
-const port=8116, server=spawn(process.execPath,[path.join(APP,'backend/dist/bin/server.js')],{env:{...process.env,GUCOS2_PORT:String(port),GUCOS2_DIST:path.join(APP,'frontend','dist')},stdio:['ignore','pipe','pipe']});
+// The backend must derive this checkout from its compiled module location;
+// test_backend positively controls the resolved root before this browser leg.
+const port=8116, server=spawn(process.execPath,[path.join(APP,'backend/dist/bin/server.js')],{env:{...process.env,GUCOS2_PORT:String(port)},stdio:['ignore','pipe','pipe']});
 server.stdout.on('data',b=>process.stdout.write('[server] '+b));server.stderr.on('data',b=>process.stderr.write('[server] '+b));
 const sleep=(n)=>new Promise(r=>setTimeout(r,n));
 async function waitServer(){for(let i=0;i<100;i++){try{if((await fetch(`http://127.0.0.1:${port}/api/health`)).ok)return}catch{}await sleep(100)}throw new Error('server did not start')}
@@ -43,7 +42,7 @@ try{
  await page.evaluate(id=>window.__terminalInput(id,'echo persisted > /root/mobile-proof\n'),a.id);await sleep(300);
  const range=await page.evaluate(async()=>Array.from(await window.__kernelReadRange('/root/mobile-proof',2,4)));if(new TextDecoder().decode(new Uint8Array(range))!=='rsis')throw new Error('filesystem ranged read returned wrong bytes');const rangeError=await page.evaluate(async()=>{try{await window.__kernelReadRange('/root/mobile-proof',0,4194305);return ''}catch(e){return e.code+':'+e.message}});if(!rangeError.startsWith('E2BIG:'))throw new Error('filesystem range limit not enforced: '+rangeError);
  await page.evaluate(id=>window.__terminalInput(id,'(sleep 1; echo BGREPLAY) &\n'),a.id);await page.click('[data-testid="nav-files"]');await sleep(1500);await page.click('[data-testid="nav-term"]');await waitText(a.id,'BGREPLAY');
- await page.locator('#tabs button').filter({hasText:`Shell ${b.id}`}).locator('span').last().click();await page.waitForFunction(()=>window.__terminals.size===1);
+ await page.getByRole('button',{name:`Close Shell ${b.id}`}).click();await page.waitForFunction(()=>window.__terminals.size===1);
  await page.evaluate(({id,pid})=>window.__terminalInput(id,`kill -0 ${pid} 2>/dev/null || echo REAPED\n`),{id:a.id,pid:b.pid});await waitText(a.id,'\nREAPED\n');
  if((await page.locator('#app').boundingBox()).width!==375)throw new Error('375px layout overflow');
  await page.reload();await page.waitForFunction(()=>window.__osState==='ready'&&window.__terminals.size===1,null,{timeout:120000});
@@ -159,24 +158,24 @@ try{
  await page.click('[data-testid="nav-term"]'); await page.waitForFunction(()=>window.__terminals.size===1);
  a=(await snap())[0]; await page.evaluate(id=>window.__terminalInput(id,'echo PROCESSVIEWOK\n'),a.id); await waitText(a.id,'\nPROCESSVIEWOK\n');
  const exitedId=a.id;await page.evaluate(id=>window.__terminalInput(id,'exit\n'),exitedId);await page.waitForFunction(id=>window.__terminals.size===1&&!window.__terminals.has(id),exitedId);a=(await snap())[0];await page.evaluate(id=>window.__terminalInput(id,'echo EXITRECREATED\n'),a.id);await waitText(a.id,'EXITRECREATED');
- const lastId=a.id;await page.locator('#tabs button').filter({hasText:`Shell ${lastId}`}).locator('span').last().click();
+ const lastId=a.id;await page.getByRole('button',{name:`Close Shell ${lastId}`}).click();
  await page.waitForFunction(id=>window.__terminals.size===1&&!window.__terminals.has(id),lastId);
  // Input dialog (Radix Dialog, terminal rename via tab double-click): the
  // field is focused with the current name selected, Escape cancels, Enter
  // confirms, and focus returns to the invoking tab.
- const tab=page.locator('#tabs button').first(),tabName=await tab.locator('span').first().innerText();
+ const tab=page.getByRole('tab').first(),tabName=await tab.innerText();
  await tab.dblclick();
  const renameDialog=page.locator('[data-testid="dialog"]');await renameDialog.waitFor();
  const renameInput=page.getByTestId('dialog-input');
  if(!await page.evaluate(()=>document.activeElement?.getAttribute('data-testid')==='dialog-input'))throw new Error('input dialog did not focus the field');
  if(!await renameInput.evaluate(n=>n.selectionStart===0&&n.selectionEnd===n.value.length&&n.value.length>0))throw new Error('input dialog did not select the current name');
  await page.keyboard.press('Escape');await renameDialog.waitFor({state:'detached'});
- if(!await page.evaluate(n=>[...document.querySelectorAll('#tabs button span')].some(s=>s.textContent===n),tabName))throw new Error('Escape renamed the terminal');
+ if(!await page.evaluate(n=>[...document.querySelectorAll('#tabs [role=tab]')].some(s=>s.textContent===n),tabName))throw new Error('Escape renamed the terminal');
  await page.waitForFunction(()=>document.activeElement?.closest('#tabs')!=null,null,{timeout:3000}).catch(()=>{throw new Error('input dialog Escape did not return focus to the invoking tab');});
  await tab.dblclick();await renameInput.waitFor();
  await renameInput.fill('Renamed shell');
  await page.keyboard.press('Enter');await renameDialog.waitFor({state:'detached'});
- await page.locator('#tabs button').filter({hasText:'Renamed shell'}).waitFor();
+ await page.getByRole('tab',{name:'Renamed shell'}).waitFor();
  const facts=await page.evaluate(async()=>({isolated:crossOriginIsolated,sw:!!(await navigator.serviceWorker.ready),manifest:!!document.querySelector('link[rel=manifest]'),width:innerWidth,tabs:window.__terminals.size}));
  if(!facts.isolated||!facts.sw||!facts.manifest||facts.width!==375)throw new Error('browser/PWA facts '+JSON.stringify(facts));
  await page.evaluate(()=>localStorage.setItem('gucos2:elevenlabs-key','sk_scribe-regression-key'));
