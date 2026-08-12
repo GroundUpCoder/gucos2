@@ -10,7 +10,7 @@ export default function TermPage() {
   useSyncExternalStore(terminalStore.subscribe, terminalStore.snapshot); const kernel = useKernel(); const [font, setFont] = useState(18); const [error, setError] = useState(''); const [renaming,setRenaming]=useState<number|null>(null);
   const sessions = [...terminalStore.sessions.values()];
   const input = (data: string) => { if (terminalStore.active) { kernel.terminalInput(terminalStore.active, data); (window.__terminals.get(terminalStore.active) as {term?:{focus():void}}|undefined)?.term?.focus(); } };
-  const closeAndRestoreFocus=(id:number)=>{terminalStore.close(id);const unsubscribe=terminalStore.subscribe(()=>{if(terminalStore.sessions.has(id))return;unsubscribe();requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#tabs [role=tab][data-terminal-id="${terminalStore.active}"]`)?.focus())})};
+  const closeAndRestoreFocus=(id:number)=>{const unsubscribe=terminalStore.subscribe(()=>{if(terminalStore.sessions.has(id)||!terminalStore.active)return;unsubscribe();requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#tabs [role=tab][data-terminal-id="${terminalStore.active}"]`)?.focus())});terminalStore.close(id)};
   return <div className="flex-1 min-h-0 flex flex-col" data-testid="term-page">
     <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 border-b border-border shrink-0" data-testid="term-toolbar">
       <SquareTerminal className="w-4 h-4 text-muted-foreground"/><span className="text-xs text-muted-foreground font-mono truncate flex-1">gucOS shell</span>

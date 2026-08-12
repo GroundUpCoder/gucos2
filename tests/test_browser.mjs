@@ -163,8 +163,8 @@ try{
  await page.click('[data-testid="nav-term"]'); await page.waitForFunction(()=>window.__terminals.size===1);
  a=(await snap())[0]; await page.evaluate(id=>window.__terminalInput(id,'echo PROCESSVIEWOK\n'),a.id); await waitText(a.id,'\nPROCESSVIEWOK\n');
  const exitedId=a.id;await page.evaluate(id=>window.__terminalInput(id,'exit\n'),exitedId);await page.waitForFunction(id=>window.__terminals.size===1&&!window.__terminals.has(id),exitedId);a=(await snap())[0];await page.evaluate(id=>window.__terminalInput(id,'echo EXITRECREATED\n'),a.id);await waitText(a.id,'EXITRECREATED');
- const lastId=a.id;await page.getByRole('button',{name:`Close Shell ${lastId}`}).click();
- await page.waitForFunction(id=>window.__terminals.size===1&&!window.__terminals.has(id),lastId);
+ const lastId=a.id;await page.getByRole('tab',{name:`Shell ${lastId}`}).focus();await page.keyboard.press('Delete');
+ await page.waitForFunction(id=>window.__terminals.size===1&&!window.__terminals.has(id)&&document.activeElement?.getAttribute('data-terminal-id')===String(window.__activeTerminal)&&document.activeElement?.getAttribute('aria-selected')==='true',lastId);
  // Input dialog (Radix Dialog, terminal rename via tab double-click): the
  // field is focused with the current name selected, Escape cancels, Enter
  // confirms, and focus returns to the invoking tab.
