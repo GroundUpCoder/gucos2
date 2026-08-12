@@ -12,7 +12,7 @@ repository with these exact settings:
 - Build command:
   `corepack enable && pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend build`
 - Build output directory: `frontend/dist`
-- Node version: selected from the repository's `.node-version` (`25.8.2`)
+- Node version: selected from the repository's `.node-version` (`24.18.0` LTS)
 - Build environment variables: none
 
 Do not configure a Pages Function. Production is static. The build copies
