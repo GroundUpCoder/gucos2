@@ -6,7 +6,7 @@ Create a new Cloudflare Pages project connected to the private GitHub
 repository with these exact settings:
 
 - Project name: `gucos2`
-- Production branch: `main`
+- Production branch: `deploy`
 - Framework preset: `None`
 - Root directory: `/`
 - Build command: `bash scripts/build-cloudflare.sh`
@@ -21,6 +21,10 @@ The repository-owned build script pins the pnpm version and owns the complete
 Cloudflare build sequence. Update `pnpm_version` in
 `scripts/build-cloudflare.sh` when intentionally upgrading pnpm; the dashboard
 command remains unchanged.
+
+Development lands on `main`. Promote a tested revision by merging `main` into
+`deploy`; do not force-push the production branch or rewrite its deployment
+history.
 
 ## Custom domain
 
