@@ -40,9 +40,10 @@ check('Pages headers keep content-addressed assets immutable',
   pagesHeaders.includes('/runtime/*') && pagesHeaders.includes('/packages/pool/*') &&
   pagesHeaders.includes('max-age=31536000, immutable'));
 check('Pages routing has explicit SPA routes and a real 404 boundary',
-  pagesRedirects.includes('/chat/* /index.html 200') &&
-  pagesRedirects.includes('/files/* /index.html 200') &&
-  pagesRedirects.includes('/edit/* /index.html 200') &&
+  pagesRedirects.includes('/chat/* / 200') &&
+  pagesRedirects.includes('/files/* / 200') &&
+  pagesRedirects.includes('/edit/* / 200') &&
+  !pagesRedirects.includes('/index.html') &&
   fs.readFileSync(path.join(DIST, '404.html'), 'utf8').includes('Not found'));
 
 // --- image.json ↔ hashed blob ----------------------------------------------
