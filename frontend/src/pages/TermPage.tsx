@@ -18,7 +18,14 @@ export default function TermPage() {
       <button className="flex items-center gap-1 text-xs px-2 py-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50" title="Paste" onClick={() => navigator.clipboard.readText().then(input).catch(e => setError(String(e)))}><ClipboardPaste className="w-3.5 h-3.5"/><span className="hidden sm:inline">Paste</span></button>
     </div>
     <div id="tabs" role="tablist" aria-label="Terminal sessions" className="flex gap-1 overflow-x-auto px-2 py-1.5 border-b bg-card">
-      {sessions.map(s => <div key={s.id} className={`flex items-center rounded whitespace-nowrap ${terminalStore.active === s.id ? 'bg-accent' : 'text-muted-foreground'}`}><button role="tab" aria-selected={terminalStore.active===s.id} className="px-2 py-1.5 text-sm" onClick={() => terminalStore.activate(s.id)} onDoubleClick={() => setRenaming(s.id)} onKeyDown={e=>{if(e.key==='F2'){e.preventDefault();setRenaming(s.id)}else if(e.key==='Delete'){e.preventDefault();terminalStore.close(s.id)}else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const at=sessions.findIndex(item=>item.id===s.id),step=e.key==='ArrowRight'?1:-1,next=sessions[(at+step+sessions.length)%sessions.length];if(next)terminalStore.activate(next.id)}}}>{s.name}</button><button type="button" data-testid="terminal-close" className="mr-1 px-1 text-destructive" aria-label={`Close ${s.name}`} onClick={() => terminalStore.close(s.id)}>×</button></div>)}
+      {sessions.map(s => <div key={s.id} className={`flex items-center rounded whitespace-nowrap ${terminalStore.active === s.id ? 'bg-accent' : 'text-muted-foreground'}`}><button role="tab" aria-selected={terminalStore.active===s.id} tabIndex={terminalStore.active===s.id?0:-1} data-terminal-id={s.id} className="px-2 py-1.5 text-sm" onClick={() => terminalStore.activate(s.id)} onDoubleClick={() => setRenaming(s.id)} onKeyDown={e=>{
+        if(e.key==='F2'){e.preventDefault();setRenaming(s.id)}
+        else if(e.key==='Delete'){e.preventDefault();terminalStore.close(s.id)}
+        else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
+          e.preventDefault();const at=sessions.findIndex(item=>item.id===s.id),step=e.key==='ArrowRight'?1:-1,next=sessions[(at+step+sessions.length)%sessions.length];
+          if(next){terminalStore.activate(next.id);requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#tabs [role=tab][data-terminal-id="${next.id}"]`)?.focus())}
+        }
+      }}>{s.name}</button><button type="button" data-testid="terminal-close" className="mr-1 px-1 text-destructive" aria-label={`Close ${s.name}`} onClick={() => terminalStore.close(s.id)}>×</button></div>)}
       <button id="new" className="px-2 py-1.5 rounded text-sm" onClick={() => terminalStore.open()}>+ New shell</button>
     </div>
     {error && <div className="text-xs text-destructive px-2">Paste failed: {error}</div>}

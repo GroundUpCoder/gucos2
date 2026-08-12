@@ -34,6 +34,11 @@ try{
  await page.click('#new'); await page.waitForFunction(()=>window.__terminals.size===2); let ss=await snap(),b=ss.find(x=>x.id!==a.id);
  await page.evaluate(id=>window.__terminalInput(id,'pwd; echo ${TABVAR-unset}; echo TAB2\n'),b.id);
  await waitText(b.id,'\n/root\nunset\nTAB2\n');
+ const terminalTabs=page.getByRole('tab');if(await terminalTabs.count()!==2)throw new Error('terminal tab roles missing');
+ if(await terminalTabs.evaluateAll(tabs=>tabs.filter(tab=>tab.tabIndex===0).length)!==1)throw new Error('terminal tabs do not have exactly one roving tab stop');
+ await terminalTabs.filter({hasText:`Shell ${b.id}`}).focus();await page.keyboard.press('ArrowLeft');
+ await page.waitForFunction(id=>document.activeElement?.getAttribute('data-terminal-id')===String(id)&&document.activeElement?.getAttribute('aria-selected')==='true',a.id);
+ await terminalTabs.filter({hasText:`Shell ${b.id}`}).click();
  await page.evaluate(id=>window.__terminalInput(id,'sleep 30\n'),b.id);await sleep(100);
  await page.locator('#keys button',{hasText:'Ctrl-C'}).click();
  await page.evaluate(id=>window.__terminalInput(id,'echo OSKROUTE\n'),b.id);await waitText(b.id,'\nOSKROUTE\n');
