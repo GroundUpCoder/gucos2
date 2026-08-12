@@ -10,6 +10,7 @@ export default function TermPage() {
   useSyncExternalStore(terminalStore.subscribe, terminalStore.snapshot); const kernel = useKernel(); const [font, setFont] = useState(18); const [error, setError] = useState(''); const [renaming,setRenaming]=useState<number|null>(null);
   const sessions = [...terminalStore.sessions.values()];
   const input = (data: string) => { if (terminalStore.active) { kernel.terminalInput(terminalStore.active, data); (window.__terminals.get(terminalStore.active) as {term?:{focus():void}}|undefined)?.term?.focus(); } };
+  const closeAndRestoreFocus=(id:number)=>{terminalStore.close(id);const unsubscribe=terminalStore.subscribe(()=>{if(terminalStore.sessions.has(id))return;unsubscribe();requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#tabs [role=tab][data-terminal-id="${terminalStore.active}"]`)?.focus())})};
   return <div className="flex-1 min-h-0 flex flex-col" data-testid="term-page">
     <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 border-b border-border shrink-0" data-testid="term-toolbar">
       <SquareTerminal className="w-4 h-4 text-muted-foreground"/><span className="text-xs text-muted-foreground font-mono truncate flex-1">gucOS shell</span>
@@ -20,7 +21,7 @@ export default function TermPage() {
     <div id="tabs" role="tablist" aria-label="Terminal sessions" className="flex gap-1 overflow-x-auto px-2 py-1.5 border-b bg-card">
       {sessions.map(s => <div key={s.id} className={`flex items-center rounded whitespace-nowrap ${terminalStore.active === s.id ? 'bg-accent' : 'text-muted-foreground'}`}><button role="tab" aria-selected={terminalStore.active===s.id} tabIndex={terminalStore.active===s.id?0:-1} data-terminal-id={s.id} className="px-2 py-1.5 text-sm" onClick={() => terminalStore.activate(s.id)} onDoubleClick={() => setRenaming(s.id)} onKeyDown={e=>{
         if(e.key==='F2'){e.preventDefault();setRenaming(s.id)}
-        else if(e.key==='Delete'){e.preventDefault();terminalStore.close(s.id)}
+        else if(e.key==='Delete'){e.preventDefault();closeAndRestoreFocus(s.id)}
         else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){
           e.preventDefault();const at=sessions.findIndex(item=>item.id===s.id),step=e.key==='ArrowRight'?1:-1,next=sessions[(at+step+sessions.length)%sessions.length];
           if(next){terminalStore.activate(next.id);requestAnimationFrame(()=>document.querySelector<HTMLElement>(`#tabs [role=tab][data-terminal-id="${next.id}"]`)?.focus())}

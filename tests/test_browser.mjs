@@ -47,7 +47,7 @@ try{
  await page.evaluate(id=>window.__terminalInput(id,'echo persisted > /root/mobile-proof\n'),a.id);await sleep(300);
  const range=await page.evaluate(async()=>Array.from(await window.__kernelReadRange('/root/mobile-proof',2,4)));if(new TextDecoder().decode(new Uint8Array(range))!=='rsis')throw new Error('filesystem ranged read returned wrong bytes');const rangeError=await page.evaluate(async()=>{try{await window.__kernelReadRange('/root/mobile-proof',0,4194305);return ''}catch(e){return e.code+':'+e.message}});if(!rangeError.startsWith('E2BIG:'))throw new Error('filesystem range limit not enforced: '+rangeError);
  await page.evaluate(id=>window.__terminalInput(id,'(sleep 1; echo BGREPLAY) &\n'),a.id);await page.click('[data-testid="nav-files"]');await sleep(1500);await page.click('[data-testid="nav-term"]');await waitText(a.id,'BGREPLAY');
- await page.getByRole('button',{name:`Close Shell ${b.id}`}).click();await page.waitForFunction(()=>window.__terminals.size===1);
+ await page.getByRole('tab',{name:`Shell ${b.id}`}).focus();await page.keyboard.press('Delete');await page.waitForFunction(id=>window.__terminals.size===1&&document.activeElement?.getAttribute('data-terminal-id')===String(id)&&document.activeElement?.getAttribute('aria-selected')==='true',a.id);
  await page.evaluate(({id,pid})=>window.__terminalInput(id,`kill -0 ${pid} 2>/dev/null || echo REAPED\n`),{id:a.id,pid:b.pid});await waitText(a.id,'\nREAPED\n');
  if((await page.locator('#app').boundingBox()).width!==375)throw new Error('375px layout overflow');
  await page.reload();await page.waitForFunction(()=>window.__osState==='ready'&&window.__terminals.size===1,null,{timeout:120000});
