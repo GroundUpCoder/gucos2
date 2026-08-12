@@ -12,7 +12,7 @@ repository with these exact settings:
 - Build command:
   `npm exec --yes pnpm@10.11.1 -- --dir frontend install --frozen-lockfile && npm exec --yes pnpm@10.11.1 -- --dir frontend build`
 - Build output directory: `frontend/dist`
-- Node version: selected from the repository's `.node-version` (`24.18.0` LTS)
+- Node version: selected from the repository's `.node-version` (`26.7.0` Current)
 - Build environment variables: none
 
 Do not configure a Pages Function. Production is static. The build copies
