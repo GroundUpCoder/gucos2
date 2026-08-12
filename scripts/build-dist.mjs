@@ -115,7 +115,7 @@ fs.mkdirSync(path.join(DIST, 'os'), { recursive: true });
 
 console.log('[build] baking the minimal os-system.img via guc/tools/mkimage.js …');
 const bake = spawnSync(process.execPath,
-  ['--experimental-wasm-exnref', path.join(GUC, 'tools', 'mkimage.js'), `--out=${path.join(DIST, 'os', 'os-system.img')}`, `--manifest=${CLI_MANIFEST}`, '--quiet'],
+  [path.join(GUC, 'tools', 'mkimage.js'), `--out=${path.join(DIST, 'os', 'os-system.img')}`, `--manifest=${CLI_MANIFEST}`, '--quiet'],
   { cwd: GUC, stdio: 'inherit' });
 if (bake.status !== 0) { console.error('build: mkimage failed'); process.exit(1); }
 
@@ -128,7 +128,7 @@ console.log(`[build] image published as ${IMG_HASHED} (immutable) + os-system.im
 console.log('[build] building gucman packages via guc/tools/mkpkg.js …');
 const packageSet = JSON.parse(fs.readFileSync(path.join(APP, 'package-repository-set.json'), 'utf8'));
 const CLI_PACKAGES = [...packageSet.publishedDefinitions, ...packageSet.publishedSourceCompanions];
-const mkpkg = spawnSync(process.execPath, ['--experimental-wasm-exnref', path.join(GUC, 'tools', 'mkpkg.js'), '--quiet', `--manifest=${CLI_MANIFEST}`, ...CLI_PACKAGES],
+const mkpkg = spawnSync(process.execPath, [path.join(GUC, 'tools', 'mkpkg.js'), '--quiet', `--manifest=${CLI_MANIFEST}`, ...CLI_PACKAGES],
   { cwd: GUC, stdio: 'inherit' });
 if (mkpkg.status !== 0) { console.error('build: mkpkg failed'); process.exit(1); }
 const PKG_SRC = path.join(GUC, 'dist', 'packages');
