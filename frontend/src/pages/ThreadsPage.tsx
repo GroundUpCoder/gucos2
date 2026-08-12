@@ -59,5 +59,5 @@ export default function ThreadsPage() {
       </div>}
       {kernel.status === 'ready' && !visible.length && !error && <div className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground">{query ? 'No matching threads.' : 'No threads yet.'}</div>}
     </div>
-  </div><Dialog open={deleting !== null} title={`Delete ${deleting?.title ?? 'thread'}?`} description="Permanently delete this local JSONL thread? This cannot be undone." confirmLabel="Delete" destructive onCancel={() => setConfirmDelete(null)} onConfirm={() => { if (!deleting) return; void deleteThread(deleting).then(() => { setConfirmDelete(null); return refresh(query) }).catch(e => setError(String(e))) }} /></div>
+  </div><Dialog open={deleting !== null} title={`Delete ${deleting?.title ?? 'thread'}?`} description="Permanently delete this local JSONL thread? This cannot be undone." confirmLabel="Delete" destructive onCancel={() => setConfirmDelete(null)} onConfirm={() => { if (!deleting) return; void deleteThread(deleting).then(() => { session.deletedThread(deleting.id); setConfirmDelete(null); return refresh(query) }).catch(e => setError(String(e))) }} /></div>
 }

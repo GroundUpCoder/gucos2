@@ -19,8 +19,16 @@ function check(name, cond, detail = '') {
   else { failures++; console.error(`  FAIL ${name}${detail ? ' — ' + detail : ''}`); }
 }
 
+const builtPaths = await import(path.join(APP, 'backend', 'dist', 'paths.js'));
+check('compiled backend resolves this checkout as its repository root', builtPaths.REPO_DIR === APP,
+  `resolved ${builtPaths.REPO_DIR}, expected ${APP}`);
+check('default dist belongs to this checkout', builtPaths.FRONTEND_DIST_DIR === DIST,
+  `resolved ${builtPaths.FRONTEND_DIST_DIR}, expected ${DIST}`);
+
+const serverEnv = { ...process.env, GUCOS2_PORT: String(PORT) };
+delete serverEnv.GUCOS2_DIST;
 const srv = spawn(process.execPath, [path.join(APP, 'backend', 'dist', 'bin', 'server.js')], {
-  env: { ...process.env, GUCOS2_PORT: String(PORT), GUCOS2_DIST: DIST },
+  env: serverEnv,
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let srvLog = '';
@@ -47,6 +55,13 @@ try {
   check('health has COOP/COEP too',
     health.headers.get('cross-origin-opener-policy') === 'same-origin'
     && health.headers.get('cross-origin-embedder-policy') === 'require-corp');
+  const csp = health.headers.get('content-security-policy') ?? '';
+  check('CSP permits required providers/workers without unsafe-inline scripts',
+    csp.includes("script-src 'self' 'wasm-unsafe-eval'")
+    && csp.includes("worker-src 'self' blob:")
+    && csp.includes('https://api.deepseek.com')
+    && csp.includes('https://api.elevenlabs.io')
+    && !/script-src[^;]*'unsafe-inline'/.test(csp), csp);
 
   const root = await fetch(`${BASE}/`);
   check('/ serves the React shell', root.status === 200

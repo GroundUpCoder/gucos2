@@ -6,7 +6,7 @@ import {ensureAgentWorkspace} from './workspace';
 
 export type ImageAttachment={mediaType:string;data:string;name:string};
 export type ChatMessage=DisplayMessage&{error?:boolean;streaming?:boolean;streamId?:string;id?:string;activeBlockCount?:number};
-type Session={messages:ChatMessage[];streaming:boolean;status:string|null;thread:ThreadSummary|null;model:string;profileId:string;profileError:string|null;error:string|null;setModel(v:string):void;send(text:string,images?:ImageAttachment[]):Promise<void>;stop():void;newThread():void;cancelOpen():void;openThread(thread:ThreadSummary):Promise<void>};
+type Session={messages:ChatMessage[];streaming:boolean;status:string|null;thread:ThreadSummary|null;model:string;profileId:string;profileError:string|null;error:string|null;setModel(v:string):void;send(text:string,images?:ImageAttachment[]):Promise<void>;stop():void;newThread():void;deletedThread(id:string):void;cancelOpen():void;openThread(thread:ThreadSummary):Promise<void>};
 const Context=createContext<Session|null>(null);
 export const useAgentSession=()=>{const value=useContext(Context);if(!value)throw new Error('AgentSessionProvider missing');return value};
 export const SYSTEM_PROMPT=`You are the gucOS browser agent. Use only the modern Read, List, Search, Write, Edit, and Bash tools. gucOS provides BusyBox hush at /bin/sh. Every Bash call is a new real process in /root/agent with a fixed minimal environment; cwd and exports do not persist. Relative file paths also resolve from /root/agent. Read before overwriting or editing. Tool output is deliberately bounded: follow has_more and next_offset repeatedly when complete enumeration is needed, and use narrower Bash follow-ups when either fd is truncated. Never ask one call to dump a large file, directory, search set, or command output. Never request or expose API keys.`;
@@ -23,6 +23,7 @@ export function AgentSessionProvider({children}:{children:React.ReactNode}){
  },[thread]);
  const stop=useCallback(()=>abortRef.current?.abort(new Error('Stopped by user')),[]);
  const newThread=useCallback(()=>{if(running.current){setError('Stop the running turn before starting a new thread');return}navigationVersion.current++;setThread(null);setMessages([]);setError(null);setProfileId(DEFAULT_PROFILE.id);reads.current=new ReadState()},[]);
+ const deletedThread=useCallback((id:string)=>{if(thread?.id===id)newThread()},[thread?.id,newThread]);
  const cancelOpen=useCallback(()=>{navigationVersion.current++},[]);
  const openThread=useCallback(async(next:ThreadSummary)=>{if(running.current)throw new Error('Cannot open a thread during a running turn');const version=++navigationVersion.current,replay=await replayJournal(next.path);if(version!==navigationVersion.current)return;setThread(next);setProfileId(next.endpoint_profile_id);setModelState(next.model);localStorage.setItem('gucos2:model',next.model);setMessages(replay.displayMessages);setError(replay.warnings.join('; ')||null);reads.current=new ReadState()},[]);
  const send=useCallback(async(text:string,images:ImageAttachment[]=[] )=>{
@@ -52,5 +53,5 @@ export function AgentSessionProvider({children}:{children:React.ReactNode}){
   }catch(e){if(activeStreamId)setMessages(v=>v.filter(m=>m.streamId!==activeStreamId));const message=e instanceof Error?e.message:String(e);setError(message);if(active&&!turnEnded)try{await appendRecord(active,'turn_end',{status:abort.signal.aborted?'aborted':'error',error:message})}catch{/* original remains visible */}}
   finally{if(activeStreamId)setMessages(v=>v.filter(m=>m.streamId!==activeStreamId));running.current=false;abortRef.current=null;setStreaming(false);setStatus(null)}
  },[thread,model,profileId,profileError]);
- return <Context.Provider value={{messages,streaming,status,thread,model,profileId,profileError,error,setModel,send,stop,newThread,cancelOpen,openThread}}>{children}</Context.Provider>
+ return <Context.Provider value={{messages,streaming,status,thread,model,profileId,profileError,error,setModel,send,stop,newThread,deletedThread,cancelOpen,openThread}}>{children}</Context.Provider>
 }
