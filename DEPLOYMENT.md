@@ -9,14 +9,18 @@ repository with these exact settings:
 - Production branch: `main`
 - Framework preset: `None`
 - Root directory: `/`
-- Build command:
-  `npm exec --yes pnpm@10.11.1 -- --dir frontend install --frozen-lockfile && npm exec --yes pnpm@10.11.1 -- --dir frontend build`
+- Build command: `bash scripts/build-cloudflare.sh`
 - Build output directory: `frontend/dist`
 - Node version: selected from the repository's `.node-version` (`26.7.0` Current)
 - Build environment variables: none
 
 Do not configure a Pages Function. Production is static. The build copies
 `frontend/public/_headers`, `_redirects`, and `404.html` into the output.
+
+The repository-owned build script pins the pnpm version and owns the complete
+Cloudflare build sequence. Update `pnpm_version` in
+`scripts/build-cloudflare.sh` when intentionally upgrading pnpm; the dashboard
+command remains unchanged.
 
 ## Custom domain
 
