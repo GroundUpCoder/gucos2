@@ -1,0 +1,666 @@
+{
+  "version": 244,
+  "defaultPackages": ["doom", "gcode"],
+  "overlays": [
+    {
+      "id": "clang-apps",
+      "description": "C/C++ apps cross-compiled by the sibling clang-simplified (cc2wasm) toolchain; prebuilt, opt-in via --overlay=clang-apps (todos/0118)",
+      "manifest": "../clang-simplified/out-image/overlay.json",
+      "enableFlag": "clang-apps",
+      "default": false
+    }
+  ],
+  "system": {
+    "dirs": [
+      "/usr/bin",
+      "/usr/lib",
+      "/usr/share",
+      "/usr/share/deck",
+      "/usr/share/doc",
+      "/usr/share/fonts",
+      "/usr/share/gucman",
+      "/usr/share/menu",
+      "/usr/share/menu/Accessories",
+      "/usr/share/menu/Demos",
+      "/usr/share/menu/Games",
+      "/usr/share/mgp",
+      "/usr/share/mgp/talks",
+      "/usr/share/mgp/tutorial",
+      "/usr/share/sounds"
+    ],
+    "files": {
+      "/usr/lib/ksvc.wasm": {
+        "project": "os/ksvc/bin.json"
+      },
+      "/usr/share/doc/sdl-gucos.md": {
+        "bin": "os/doc/sdl-gucos.md"
+      },
+      "/usr/bin/sh": {
+        "project": "vendor/busybox/bin.json"
+      },
+      "/usr/bin/psh": {
+        "c": "protoshell.c"
+      },
+      "/usr/bin/cc": {
+        "c": "cc.c"
+      },
+      "/usr/bin/wm": {
+        "project": "os/wm.json"
+      },
+      "/usr/bin/open": {
+        "c": "open.c",
+        "hdrs": [
+          "openwith.h",
+          "cfgstore.h"
+        ]
+      },
+      "/usr/bin/strace": {
+        "c": "strace.c"
+      },
+      "/usr/bin/clip": {
+        "c": "clip.c",
+        "hdrs": [
+          "clipio.h"
+        ]
+      },
+      "/usr/bin/pbcopy": {
+        "c": "pbcopy.c",
+        "hdrs": [
+          "clipio.h"
+        ]
+      },
+      "/usr/bin/pbpaste": {
+        "c": "pbpaste.c",
+        "hdrs": [
+          "clipio.h"
+        ]
+      },
+      "/usr/bin/curl": {
+        "project": "os/curl/cli.json"
+      },
+      "/usr/bin/file-gucos-ticket": {
+        "c": "file-gucos-ticket.c",
+        "hdrs": [
+          "cfgstore.h"
+        ]
+      },
+      "/usr/bin/gucman": {
+        "project": "os/gucman/bin.json"
+      },
+      "/usr/bin/software": {
+        "project": "os/win32/software.json"
+      },
+      "/usr/bin/desktop-defaults": {
+        "project": "os/deskdefaults.json"
+      },
+      "/usr/share/gucman/repos": {
+        "content": "# gucman package repository (gucman Slice 1). One base URL per line;\n# the first non-comment line wins. Overridable at /etc/gucman/repos.\n# The default is origin-relative: the browser fetches /packages/index.json\n# from the same deploy that served the OS (serve.js maps /packages/* to\n# dist/packages/*, tools/mkpkg.js output). Headless boots write an\n# absolute http://... URL into /etc/gucman/repos instead.\n/packages\n"
+      },
+      "/usr/bin/cmdalt": {
+        "c": "cmdalt.c",
+        "hdrs": [
+          "cmdalt.h",
+          "cfgstore.h"
+        ]
+      },
+      "/usr/bin/python": {
+        "link": "/usr/bin/cmdalt"
+      },
+      "/usr/bin/wmctl": {
+        "c": "wmctl.c",
+        "hdrs": [
+          "wm_proto.h",
+          "wm_agent.h"
+        ]
+      },
+      "/usr/bin/snake": {
+        "project": "vendor/snake/bin.json"
+      },
+      "/usr/bin/deck": {
+        "project": "os/deck/bin.json"
+      },
+      "/usr/share/deck/gucos.deck": {
+        "bin": "os/deck/demo/gucos.deck"
+      },
+      "/usr/share/deck/deck-title.png": {
+        "bin": "os/deck/demo/deck-title.png"
+      },
+      "/usr/bin/mgp": {
+        "project": "vendor/magicpoint/bin.json"
+      },
+      "/usr/bin/mgpp": {
+        "project": "vendor/magicpoint/mgpp.json"
+      },
+      "/usr/share/mgp/demo.mgp": {
+        "bin": "vendor/magicpoint/demo.mgp"
+      },
+      "/usr/share/mgp/demo.gif": {
+        "bin": "vendor/magicpoint/demo.gif"
+      },
+      "/usr/share/mgp/text.mgp": {
+        "bin": "vendor/magicpoint/decks/text.mgp"
+      },
+      "/usr/share/mgp/colors.mgp": {
+        "bin": "vendor/magicpoint/decks/colors.mgp"
+      },
+      "/usr/share/mgp/align.mgp": {
+        "bin": "vendor/magicpoint/decks/align.mgp"
+      },
+      "/usr/share/mgp/bullets.mgp": {
+        "bin": "vendor/magicpoint/decks/bullets.mgp"
+      },
+      "/usr/share/mgp/images.mgp": {
+        "bin": "vendor/magicpoint/decks/images.mgp"
+      },
+      "/usr/share/mgp/backgrounds.mgp": {
+        "bin": "vendor/magicpoint/decks/backgrounds.mgp"
+      },
+      "/usr/share/mgp/effects.mgp": {
+        "bin": "vendor/magicpoint/decks/effects.mgp"
+      },
+      "/usr/share/mgp/SYNTAX": {
+        "bin": "vendor/magicpoint/SYNTAX"
+      },
+      "/usr/share/mgp/tutorial/01-welcome.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/01-welcome.mgp"
+      },
+      "/usr/share/mgp/tutorial/02-first-deck.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/02-first-deck.mgp"
+      },
+      "/usr/share/mgp/tutorial/03-text.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/03-text.mgp"
+      },
+      "/usr/share/mgp/tutorial/04-color.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/04-color.mgp"
+      },
+      "/usr/share/mgp/tutorial/05-alignment.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/05-alignment.mgp"
+      },
+      "/usr/share/mgp/tutorial/06-lists.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/06-lists.mgp"
+      },
+      "/usr/share/mgp/tutorial/07-images.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/07-images.mgp"
+      },
+      "/usr/share/mgp/tutorial/08-backgrounds.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/08-backgrounds.mgp"
+      },
+      "/usr/share/mgp/tutorial/09-builds.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/09-builds.mgp"
+      },
+      "/usr/share/mgp/tutorial/10-mastery.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/10-mastery.mgp"
+      },
+      "/usr/share/mgp/talks/posix-on-wasm.mgp": {
+        "bin": "vendor/magicpoint/decks/talks/posix-on-wasm.mgp"
+      },
+      "/usr/bin/term": {
+        "project": "os/term/bin.json"
+      },
+      "/usr/bin/calc": {
+        "project": "vendor/calc/bin.json"
+      },
+      "/usr/bin/calc.res": {
+        "bin": "vendor/calc/calc.res"
+      },
+      "/usr/bin/notepad": {
+        "project": "vendor/notepad/bin.json"
+      },
+      "/usr/bin/notepad.res": {
+        "bin": "vendor/notepad/notepad.res"
+      },
+      "/usr/bin/fileman": {
+        "project": "os/win32/fileman.json"
+      },
+      "/usr/bin/paint": {
+        "project": "os/win32/paint.json"
+      },
+      "/usr/bin/ctlpanel": {
+        "project": "os/win32/ctlpanel.json"
+      },
+      "/usr/bin/filepick": {
+        "project": "os/win32/filepick.json"
+      },
+      "/usr/share/menu/Games/snake": {
+        "content": "#!/bin/sh\nterm snake\n"
+      },
+      "/usr/share/menu/Accessories/term": {
+        "link": "/usr/bin/term"
+      },
+      "/usr/share/menu/Accessories/calc": {
+        "link": "/usr/bin/calc"
+      },
+      "/usr/share/menu/Accessories/notepad": {
+        "link": "/usr/bin/notepad"
+      },
+      "/usr/share/menu/Accessories/fileman": {
+        "link": "/usr/bin/fileman"
+      },
+      "/usr/share/menu/Accessories/paint": {
+        "link": "/usr/bin/paint"
+      },
+      "/usr/share/menu/Accessories/software": {
+        "link": "/usr/bin/software"
+      },
+      "/usr/share/menu/Demos/deck": {
+        "content": "#!/bin/sh\ndeck /usr/share/deck/gucos.deck\n"
+      },
+      "/usr/share/menu/Demos/mgp": {
+        "content": "#!/bin/sh\nmgp /usr/share/mgp/demo.mgp\n"
+      },
+      "/usr/share/menu/Demos/learn-mgp": {
+        "content": "#!/bin/sh\nmgp /usr/share/mgp/tutorial/01-welcome.mgp\n"
+      },
+      "/usr/share/menu/Demos/mgp-plus": {
+        "content": "#!/bin/sh\nmgpp /usr/share/mgp/demo.mgp\n"
+      },
+      "/usr/share/fonts/mono.ttf": {
+        "bin": "vendor/fonts/NotoSansMono-Regular.ttf"
+      },
+      "/usr/share/fonts/sans.ttf": {
+        "bin": "vendor/fonts/NotoSans-Regular.ttf"
+      },
+      "/usr/share/fonts/sans_bold.ttf": {
+        "bin": "vendor/fonts/NotoSans-Bold.ttf"
+      },
+      "/usr/share/fonts/sans_italic.ttf": {
+        "bin": "vendor/fonts/NotoSans-Italic.ttf"
+      },
+      "/usr/share/fonts/sans_italic_bold.ttf": {
+        "bin": "vendor/fonts/NotoSans-BoldItalic.ttf"
+      },
+      "/usr/share/fonts/serif.ttf": {
+        "bin": "vendor/fonts/NotoSerif-Regular.ttf"
+      },
+      "/usr/share/fonts/serif_bold.ttf": {
+        "bin": "vendor/fonts/NotoSerif-Bold.ttf"
+      },
+      "/usr/share/fonts/mono_bold.ttf": {
+        "bin": "vendor/fonts/NotoSansMono-Bold.ttf"
+      },
+      "/usr/share/fonts/symbols2.ttf": {
+        "bin": "vendor/fonts/NotoSansSymbols2-Regular.ttf"
+      },
+      "/usr/share/fonts/symbols.ttf": {
+        "bin": "vendor/fonts/NotoSansSymbols-Regular.ttf"
+      },
+      "/usr/share/fonts/fallback": {
+        "content": "# Baked font fallback chain (fontchain.h's /usr layer; tickets #435/#515).\n# One ABSOLUTE face path per line; the /etc layer (gucman font-package\n# deltas) CONCATENATES ahead of this list, so installed faces probe\n# first and install/remove semantics are unchanged.\n# Noto Sans Symbols 2 covers five of the Mac modifier symbols (U+2318\n# cmd, U+2325 option, U+21E7 shift, U+232B delete-left, U+23CE return);\n# Noto Sans Symbols (1) covers the sixth, U+2303 control — measured\n# 2026-08-05, the two families are complementary (each maps none of the\n# other's modifiers). No baked text face maps any of them.\n/usr/share/fonts/symbols2.ttf\n/usr/share/fonts/symbols.ttf\n"
+      },
+      "/usr/share/sounds/scheme": {
+        "content": "# Event-sound scheme (todos/0094), consulted by PlaySound/MessageBeep\n# (os/win32) and the wm startup chime through os/sounds.h. Three layers\n# overlaid per key, highest wins: ~/.config/sounds, /etc/sounds,\n# /usr/share/sounds/scheme. Lines: EVENT<ws>WAV-PATH; the value `none`\n# silences that event; the reserved key `mute on` silences all of them\n# (the Control Panel Sounds applet toggles it).\nSystemStart\t/usr/share/sounds/startup.wav\nSystemDefault\t/usr/share/sounds/ding.wav\nSystemHand\t/usr/share/sounds/chord.wav\nSystemQuestion\t/usr/share/sounds/ding.wav\nSystemExclamation\t/usr/share/sounds/chimes.wav\nSystemAsterisk\t/usr/share/sounds/ding.wav\nBell\t/usr/share/sounds/ding.wav\n"
+      },
+      "/usr/share/keys": {
+        "content": "# Keyboard scheme (todos/0149), consulted by user32 (EDIT/LISTBOX verbs +\n# accelerators), term (copy/paste chord), the wm desktop and the Control\n# Panel Keyboard applet through os/keys.h. Three layers overlaid per key,\n# highest wins: ~/.config/keys, /etc/keys, /usr/share/keys. Keys:\n# scheme (windows | macos \u2014 which keymap; windows = Ctrl verbs, macos =\n# Cmd verbs + the emacs Ctrl rows in GUI text fields), readline (on |\n# off \u2014 those emacs rows; only meaningful under the macos scheme).\nscheme\twindows\nreadline\ton\n"
+      },
+      "/usr/share/display": {
+        "content": "# Display configuration (hires-display), consulted by the Control Panel\n# Display applet (os/display.h) and the kernel worker's display-config\n# bridge to the page (os/kernel-worker.js). Three layers overlaid per key,\n# highest wins: ~/.config/display, /etc/display, /usr/share/display. Keys:\n# zoom (auto | 0.5 | 0.75 | 1 | 2 | 3 — the VT2 desktop zoom factor; >1\n# magnifies, <1 is high-density (more fits), auto = viewport default:\n# phone-shaped boots 2x, everything else 1x).\n# NB deliberately no baked `zoom` line: an ABSENT key is the automatic\n# default AND lets the page honor a pre-bridge localStorage choice; an\n# explicit user-layer `zoom auto` (the applet's Automatic) overrides that.\n"
+      },
+      "/usr/share/screensaver": {
+        "content": "# Screensaver configuration (todos/0096), consulted by /bin/wm (the idle\n# raise) and the Control Panel Screen Saver applet through os/saver.h.\n# Three layers overlaid per key, highest wins: ~/.config/screensaver,\n# /etc/screensaver, /usr/share/screensaver. Keys: saver (none | marquee |\n# starfield), timeout (idle seconds; 0 disables), text (marquee banner).\nsaver\tstarfield\ntimeout\t900\ntext\tgucOS\n"
+      },
+      "/usr/share/term": {
+        "content": "# Terminal configuration (todos/0273d), consulted by /bin/term (loaded at\n# startup, applied live, live-reloaded on a ~/.config watch) and edited by\n# its Shell > Settings... window. Three layers overlaid per key, highest\n# wins: ~/.config/term, /etc/term, /usr/share/term. Keys: fontsize (grid\n# font px, 8..32), theme (dark | light | green | amber | ocean), scrollback\n# (history lines, 0..10000; 0 disables), cursor (block | under | bar),\n# bell (sound | visual | none), autoscroll (on | off; 0/1 accepted — snap\n# the view back to live when new output arrives).\nfontsize\t14\ntheme\tdark\nscrollback\t2000\ncursor\tblock\nbell\tsound\nautoscroll\ton\n"
+      },
+      "/usr/share/sounds/startup.wav": {
+        "bin": "os/sounds/startup.wav"
+      },
+      "/usr/share/sounds/ding.wav": {
+        "bin": "os/sounds/ding.wav"
+      },
+      "/usr/share/sounds/chord.wav": {
+        "bin": "os/sounds/chord.wav"
+      },
+      "/usr/share/sounds/chimes.wav": {
+        "bin": "os/sounds/chimes.wav"
+      },
+      "/usr/share/openwith": {
+        "content": "# File associations (todos/0072), consulted by the desktop/fileman GUI\n# opens and by open(1). Three layers overlaid per key, highest wins:\n#   ~/.config/openwith, /etc/openwith, /usr/share/openwith\n# Lines: KEY<ws>COMMAND. KEY = lowercase extension or default.gui /\n# default.term; the file path is appended to COMMAND as one argument.\n# Bare program words resolve through /usr/local/bin:/bin. GUI commands\n# should be windowed apps (wrap tty programs: `term vi`).\nbmp\t/bin/paint\ndeck\t/bin/deck\nmgp\t/bin/mgp\ndefault.gui\t/bin/notepad\ndefault.term\tvi\n"
+      },
+      "/usr/share/cmdalt": {
+        "content": "# Command alternatives (todos/0338): which implementation a dispatched\n# command NAME runs. Consulted by /usr/bin/cmdalt — every /usr/bin/<name>\n# link resolves to that one binary, which takes the key from its own\n# argv[0] — and by the Control Panel's Default Programs applet.\n# Three layers overlaid per key, highest wins:\n#   ~/.config/cmdalt (the user's pick), /etc/cmdalt (package claims),\n#   /usr/share/cmdalt (this file, the baked suggestion).\n# Lines: KEY<ws>VALUE. KEY is a command name; VALUE is an argv prefix, and\n# the dispatched command's own arguments are appended to it verbatim. Bare\n# program words resolve through /usr/local/bin:/bin. A key may carry\n# SEVERAL lines — that is the candidate set the picker offers — and the\n# FIRST one wins, so the earliest package claim stays the default until\n# the user picks otherwise.\n# Nothing python is baked into the image: `python` is a ROLE name, and the\n# line below is only the SUGGESTION a fresh boot shows when no\n# implementation is installed —\n#   python: no python implementation is installed\n#          install one:  gucman install cpython-clang\npython\tcpython-clang\n"
+      },
+      "/usr/bin/coreutils": {
+        "project": "vendor/busybox/coreutils.json"
+      },
+      "/usr/bin/[": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/awk": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/base64": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/basename": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/cat": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/cksum": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/cmp": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/comm": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/cp": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/cut": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/date": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/dd": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/diff": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/dirname": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/du": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/echo": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/egrep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/env": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/expr": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/false": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/fgrep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/find": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/fold": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/free": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/grep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/gunzip": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/gzip": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/head": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/hostname": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/id": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/kill": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/less": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/ln": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/ls": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/md5sum": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/mkdir": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/mktemp": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/mv": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/nl": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/od": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/paste": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/pgrep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/pkill": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/printf": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/ps": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/pwd": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/readlink": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/realpath": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/rm": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/rmdir": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sed": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/seq": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sha1sum": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sha256sum": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sleep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sort": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/split": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/stat": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/sync": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/tac": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/tail": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/tar": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/tee": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/test": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/top": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/touch": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/tr": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/true": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/truncate": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/uname": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/uniq": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/unlink": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/uptime": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/usleep": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/vi": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/wc": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/which": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/whoami": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/xargs": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/yes": {
+        "link": "/usr/bin/coreutils"
+      },
+      "/usr/bin/zcat": {
+        "link": "/usr/bin/coreutils"
+      }
+    }
+  },
+  "user": {
+    "dirs": [
+      "/root/Desktop",
+      "/root/Desktop/Presentations",
+      "/root/Desktop/Presentations/MagicPoint Tutorial",
+      "/root/Desktop/Presentations/POSIX on WebAssembly",
+      "/root/Desktop/Presentations/gucOS",
+      "/root/Desktop/Presentations/samples",
+      "/root/roms"
+    ],
+    "files": {
+      "/etc/profile": {
+        "content": "# gucOS default profile — sourced by login shells (hush spawned as \"-sh\",\n# todos/0174). hush itself sources ~/.profile right after this file, so put\n# per-user settings there (e.g. ANTHROPIC_API_KEY/ANTHROPIC_BASE_URL exports\n# for /bin/gcode) — do NOT source ~/.profile here or it runs twice.\n"
+      },
+      "/root/hello.c": {
+        "text": "hello.c"
+      },
+      "/root/Desktop/term": {
+        "link": "/usr/bin/term"
+      },
+      "/root/Desktop/notepad": {
+        "link": "/usr/bin/notepad"
+      },
+      "/root/Desktop/fileman": {
+        "link": "/usr/bin/fileman"
+      },
+      "/root/Desktop/calc": {
+        "link": "/usr/bin/calc"
+      },
+      "/root/Desktop/paint": {
+        "link": "/usr/bin/paint"
+      },
+      "/root/Desktop/ctlpanel": {
+        "link": "/usr/bin/ctlpanel"
+      },
+      "/root/Desktop/software": {
+        "link": "/usr/bin/software"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/01-welcome.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/01-welcome.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/02-first-deck.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/02-first-deck.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/03-text.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/03-text.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/04-color.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/04-color.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/05-alignment.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/05-alignment.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/06-lists.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/06-lists.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/07-images.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/07-images.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/08-backgrounds.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/08-backgrounds.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/09-builds.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/09-builds.mgp"
+      },
+      "/root/Desktop/Presentations/MagicPoint Tutorial/10-mastery.mgp": {
+        "bin": "vendor/magicpoint/decks/tutorial/10-mastery.mgp"
+      },
+      "/root/Desktop/Presentations/POSIX on WebAssembly/posix-on-wasm.mgp": {
+        "bin": "vendor/magicpoint/decks/talks/posix-on-wasm.mgp"
+      },
+      "/root/Desktop/Presentations/gucOS/gucos.deck": {
+        "bin": "os/deck/demo/gucos.deck"
+      },
+      "/root/Desktop/Presentations/gucOS/deck-title.png": {
+        "bin": "os/deck/demo/deck-title.png"
+      },
+      "/root/Desktop/Presentations/samples/minesweeper-programming-rainbow.sh": {
+        "content": "#!/bin/sh\n# minesweeper-programming-rainbow.sh — tap-to-run sample. Builds Programming\n# Rainbow's Minesweeper (C/SDL3) live from GitHub, compiled in-OS. Tapped on the\n# Desktop this spawns headless (no terminal); the desktop launcher sets no TERM\n# while `term` does, so with TERM unset we re-exec into a term window to show the\n# fetch/compile progress and the game. Attribution: @ProgrammingRainbow.\n[ -n \"$TERM\" ] || exec term \"$0\"\nset -e\nREPO=https://raw.githubusercontent.com/ProgrammingRainbow/Minesweeper-C-SDL3/main\n# Checked fetch that names its own cause: -s keeps the happy path quiet, -f\n# makes an HTTP error an error (a 404 page must never land in a .c file), and\n# the || arm supplies the diagnostic -s suppresses — a bridge-off browser tab\n# (cross-origin fetch = CORS block) says what broke instead of set -e killing\n# the script with no message.\nfetch() {\n    curl -sfL \"$1\" -o \"$2\" || {\n        rc=$?\n        echo \"\" >&2\n        echo \"minesweeper sample: fetch failed (curl exit $rc): $1\" >&2\n        echo \"gucOS cannot reach github.com from here. In a browser tab, external\" >&2\n        echo \"fetches need the HTTP bridge; without it cross-origin requests are\" >&2\n        echo \"blocked (CORS). Start the bridge on the host, then run this again.\" >&2\n        exit 1\n    }\n}\nmkdir -p \"$HOME/minesweeper/images\"\ncd \"$HOME/minesweeper\"\n# libpng+zlib are folded into the full image; on a minimal boot install them.\n[ -f /usr/include/png.h ] || [ -f /usr/local/include/png.h ] || gucman install libpng\necho \"fetching source…\"\nfor f in main game board border clock face init_sdl load_media mines; do\n    fetch \"$REPO/Video18/$f.c\" \"$f.c\"\n    fetch \"$REPO/Video18/$f.h\" \"$f.h\"\ndone\necho \"fetching art…\"\nfor f in board borders digits digitback faces icon; do\n    fetch \"$REPO/images/$f.png\" \"images/$f.png\"\ndone\n# this cc is __STDC_NO_VLA__ — swap game.c's one VLA for a fixed buffer\nsed -i 's/char title_str\\[length\\];/char title_str[512];/' game.c\necho \"compiling in-OS (cc *.c — pulls libpng + zlib)…\"\ncc *.c -o minesweeper\necho \"launching — left-click uncovers, right-click flags, 1-8 theme, face resets.\"\n# FOREGROUND on purpose: term ends the session (SIGHUPs the pty) when this\n# script exits, so `./minesweeper &` would kill the game the instant it launched.\n# SDL_RENDER_DRIVER=software (#551): the game's classic blocking loop is legal\n# on the software renderer; on the GPU tier it would be refused (see\n# /usr/share/doc/sdl-gucos.md). The upstream source stays byte-unmodified.\nSDL_RENDER_DRIVER=software ./minesweeper\n",
+        "mode": 493
+      },
+      "/root/roms/PokemonBlue.gb": {
+        "bin": "vendor/gameboy/roms/PokemonBlue.gb",
+        "optional": true
+      },
+      "/root/roms/SuperMarioDeluxe.gbc": {
+        "bin": "vendor/gameboy/roms/SuperMarioDeluxe.gbc",
+        "optional": true
+      },
+      "/root/roms/DrMario.gb": {
+        "bin": "vendor/gameboy/roms/DrMario.gb",
+        "optional": true
+      }
+    }
+  }
+}

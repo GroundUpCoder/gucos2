@@ -1,0 +1,982 @@
+// kernel-worker.js — the OS's kernel worker (todos/0004; layout in
+// todos/OS.md "Reference build"). Runs once per tab: mounts BlockFS on OPFS
+// (SyncAccessHandle is worker-only — this is WHY the kernel lives in a
+// worker) — a writable root volume at / plus the read-only baked system
+// blob at /usr (todos/0040; materialized by fetch-or-bake when missing or
+// stale), owns the process table + tty + fd layer (kernel.js), backs
+// /bin/cc with compiler.js, and spawns one nested process worker per pid.
+//
+// The React page speaks the typed protocol declared in
+// frontend/src/kernel/protocol.ts: lifecycle events, request-correlated
+// filesystem/process operations, real PTY sessions, and one attached graphical
+// surface at a time. Surface IDs and PIDs remain kernel-owned; detach only
+// backgrounds presentation and never kills the process.
+'use strict';
+
+importScripts('../host.js', '../kernel.js', '../compiler.js', 'os-common.js');
+try {
+  // Optional libc extension (fnmatch/glob/regex — busybox hush needs it).
+  // compiler.js's getExtLibMap picks up the EXT_LIB_MAP global it defines.
+  importScripts('../libc-ext.js');
+} catch (e) { /* absent is fine; cc just lacks the ext headers */ }
+// worker globals: BLOCK_FS, runModule (host.js); KERNEL (kernel.js);
+// CompilerJS (compiler.js); OS_COMMON (os-common.js)
+
+var kernel = null;
+var tty = null;
+var kfs = null;        // the kernel's MountFS (drop-file writes; todos/0067)
+var post = function (m, transfer) { self.postMessage(m, transfer || []); };
+var pending = [];   // input that raced the boot
+var terminals = new Map(), nextTerminalId = 1;
+var executions = new Map(), nextExecutionId = 1;
+var pendingExecutionAborts = new Set();
+var EXEC_OUTPUT_CAP = 1024 * 1024;
+var EXEC_ENV = ['HOME=/root', 'PATH=/usr/local/bin:/usr/bin:/bin', 'USER=root', 'LOGNAME=root', 'SHELL=/bin/sh', 'LANG=C.UTF-8'];
+var attachedSurface = 0, attachedSize = { w: 1, h: 1 }, surfaceSeq = -1, surfaceTimer = null;
+function pumpSurface() {
+  if (!attachedSurface || !kernel) { surfaceTimer = null; return; }
+  var s = kernel._surfaces.get(attachedSurface);
+  if (!s) { post({ type: 'surface-list', processes: processSnapshot() }); attachedSurface = 0; surfaceTimer = null; return; }
+  var seq = Atomics.load(s.i32, KERNEL.SH_SEQ);
+  if (seq !== surfaceSeq || s.bitmap) {
+    surfaceSeq = seq;
+    if (s.bitmap) {
+      var bmp = s.bitmap; s.bitmap = null;
+      post({ type: 'surface-frame', surfaceId: s.sid, width: s.w, height: s.h, sequence: seq, bitmap: bmp }, [bmp]);
+    } else {
+      var front = Atomics.load(s.i32, KERNEL.SH_FLIP) & 1;
+      var base = KERNEL.SH_HDR_BYTES + front * s.w * s.h * 4;
+      var rgba = s.u8.slice(base, base + s.w * s.h * 4);
+      post({ type: 'surface-frame', surfaceId: s.sid, width: s.w, height: s.h, sequence: seq, rgba: rgba.buffer }, [rgba.buffer]);
+    }
+  }
+  kernel.vsyncTick();
+  surfaceTimer = setTimeout(pumpSurface, 16);
+}
+function routeSurfaceInput(ev) {
+  if (ev.kind === 'key') {
+    var fake = { code: ev.code, key: ev.key, repeat: !!ev.repeat,
+      getModifierState: function (k) { return !!(ev.mods && ev.mods[k]); } };
+    var km = SDL_WEB.keyMsg(fake, !!ev.down);
+    kernel.surfaceKey(attachedSurface, !!ev.down, km.scancode, km.sym, km.mod, km.repeat);
+  } else if (ev.kind === 'move') {
+    var b = ev.buttons | 0, state = (b & 1 ? 1 : 0) | (b & 2 ? 4 : 0) | (b & 4 ? 2 : 0);
+    kernel.surfacePointer(attachedSurface, 'move', ev.x || 0, ev.y || 0, { buttons: state, dx: ev.dx || 0, dy: ev.dy || 0, relative: !!ev.relative });
+  } else if (ev.kind === 'down' || ev.kind === 'up') {
+    kernel.surfacePointer(attachedSurface, ev.kind, ev.x, ev.y, { button: (ev.button | 0) + 1, t: ev.t });
+  } else if (ev.kind === 'wheel') {
+    var notch = ev.deltaMode === 1 ? 1 / 3 : ev.deltaMode === 2 ? 3 : 1 / 100;
+    kernel.surfacePointer(attachedSurface, 'wheel', ev.x, ev.y, { wheelX: ev.deltaX * notch, wheelY: -ev.deltaY * notch, direction: 0 });
+  } else if (ev.kind === 'lockchange') kernel.surfacePointerLockChanged(!!ev.active);
+}
+
+function rpcReply(id, ok, value, transfer) {
+  post(ok ? { type: 'rpc-result', id: id, value: value }
+          : { type: 'rpc-error', id: id, error: value }, transfer || []);
+}
+function fsError(op, path) {
+  return { code: (kfs && kfs._lastError) || 'EIO', message: op + ' ' + path + ': ' + ((kfs && kfs._lastError) || 'EIO') };
+}
+function fsList(path) {
+  var dh = kfs.opendir(path); if (dh === null) throw fsError('readdir', path);
+  var out = [], ent;
+  try {
+    while ((ent = kfs.readdir(dh)) !== null) {
+      var name = typeof ent === 'string' ? ent : ent.name;
+      if (name === '.' || name === '..') continue;
+      var child = (path === '/' ? '' : path) + '/' + name;
+      var st = kfs.lstat(child);
+      if (st) out.push({ name: name, kind: (st.mode & 0o170000) === 0o040000 ? 'directory' : 'file',
+                         size: st.size, lastModified: st.mtime * 1000 + Math.floor((st.mtimeNsec || 0) / 1e6), mode: st.mode });
+    }
+  } finally { kfs.closedir(dh); }
+  return out;
+}
+var FS_READ_CHUNK_MAX = 4 * 1024 * 1024;
+function fsReadRange(path, offset, length) {
+  offset = Number(offset); length = Number(length);
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(length) || length < 0)
+    throw { code: 'EINVAL', message: 'read ' + path + ': invalid range' };
+  if (length > FS_READ_CHUNK_MAX) throw { code: 'E2BIG', message: 'read ' + path + ': range exceeds 4 MiB' };
+  var fd = kfs.open(path, 0, 0); if (fd === null) throw fsError('open', path);
+  try {
+    var st = kfs.fstat(fd); if (!st) throw fsError('fstat', path);
+    if ((st.mode & 0o170000) === 0o040000) throw { code: 'EISDIR', message: 'read ' + path + ': EISDIR' };
+    var want = Math.min(length, Math.max(0, st.size - offset));
+    if (kfs.lseek(fd, offset, 0) === null) throw fsError('lseek', path);
+    var out = new Uint8Array(want), got = 0;
+    while (got < want) { var n = kfs.read(fd, out.subarray(got), want - got); if (n === null) throw fsError('read', path); if (!n) break; got += n; }
+    return got === out.length ? out : out.slice(0, got);
+  } finally { kfs.close(fd); }
+}
+function fsAppend(path, bytes, mode, sync) {
+  OS_COMMON.appendFileDurable(kfs,path,bytes,mode,sync);
+}
+function groupPids(pgid) {
+  var out = [];
+  kernel._procs.forEach(function (p) { if (p.pgid === pgid && p.state !== 'zombie') out.push(p.pid); });
+  return out;
+}
+function signalExecution(x, cause) {
+  if (!x || x.done || x.stopping) return;
+  x.stopping = cause;
+  kernel.kill(-x.pgid, 15, null);
+  x.killTimer = setTimeout(function () {
+    var alive = groupPids(x.pgid);
+    if (alive.length) { x.escalated = true; kernel.kill(-x.pgid, 9, null); }
+    x.leakTimer = setTimeout(function () {
+      var left = groupPids(x.pgid);
+      if (left.length) finishExecution(x, null, 'leaked-group', left);
+    }, 2000);
+  }, 500);
+}
+function drainExecution(x) {
+  if (!executions.has(x.id)) return;
+  [['stdout', x.session.stdout], ['stderr', x.session.stderr]].forEach(function (pair) {
+    var bytes = kernel.capturedTake(pair[1], 64 * 1024);
+    if (!bytes.length) return;
+    var key = pair[0] === 'stdout' ? 'stdoutBytes' : 'stderrBytes';
+    var totalKey = pair[0] === 'stdout' ? 'stdoutTotalBytes' : 'stderrTotalBytes';
+    x[totalKey] += bytes.length;
+    var room = Math.max(0, EXEC_OUTPUT_CAP - x[key]);
+    var send = bytes.length > room ? bytes.slice(0, room) : bytes;
+    x[key] += send.length;
+    if (send.length) post({ type: 'exec-output', executionId: x.id, fd: pair[0], bytes: send }, [send.buffer]);
+    if (send.length < bytes.length) x.truncated = true;
+  });
+  if (x.rootStatus !== undefined && groupPids(x.pgid).length === 0 &&
+      x.session.stdout.pipe.buf.length === 0 && x.session.stderr.pipe.buf.length === 0) {
+    finishExecution(x, x.rootStatus); return;
+  }
+  if (!x.done) x.drainTimer = setTimeout(function () { drainExecution(x); }, 8);
+}
+function finishExecution(x, status, overrideCause, leaked) {
+  if (!x || x.done) return;
+  x.done = true;
+  clearTimeout(x.timeoutTimer); clearTimeout(x.killTimer); clearTimeout(x.leakTimer); clearTimeout(x.drainTimer);
+  drainExecution(x);
+  kernel.closeCaptured(x.session);
+  executions.delete(x.id);
+  var signal = status === null ? null : (status & 0x7f) || null;
+  post({ type: 'exec-exit', executionId: x.id, pid: x.pid, pgid: x.pgid,
+    status: status === null || signal ? null : ((status >> 8) & 0xff), signal: signal,
+    cause: overrideCause || x.stopping || (signal ? 'signal' : 'exit'), truncated: x.truncated,
+    outputBytes: x.stdoutBytes + x.stderrBytes,
+    stdoutCapturedBytes: x.stdoutBytes, stdoutTotalBytes: x.stdoutTotalBytes,
+    stderrCapturedBytes: x.stderrBytes, stderrTotalBytes: x.stderrTotalBytes,
+    stdoutTruncated: x.stdoutTotalBytes > x.stdoutBytes, stderrTruncated: x.stderrTotalBytes > x.stderrBytes,
+    escalated: !!x.escalated, leakedPids: leaked || [] });
+}
+function startExecution(command, timeout, requestedId) {
+  if (typeof command !== 'string' || !command.length) throw { code: 'EINVAL', message: 'exec command is required' };
+  timeout = timeout === undefined ? 30000 : Number(timeout);
+  if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 600000) throw { code: 'EINVAL', message: 'exec timeout must be 1..600000 ms' };
+  var id = requestedId ? String(requestedId) : String(nextExecutionId++);
+  return kernel.openCaptured({ path: '/bin/sh', argv: ['/bin/sh', '-c', command], envp: EXEC_ENV.slice(), cwd: '/root/agent' }).then(function (s) {
+    var x = { id: id, pid: s.pid, pgid: s.pgid, session: s, stdoutBytes: 0, stderrBytes: 0,
+      stdoutTotalBytes: 0, stderrTotalBytes: 0, truncated: false, done: false,
+      timeoutTimer: null, killTimer: null, leakTimer: null, drainTimer: null, stopping: null, escalated: false, rootStatus: undefined };
+    executions.set(id, x);
+    if (pendingExecutionAborts.delete(id)) signalExecution(x, 'abort');
+    x.timeoutTimer = setTimeout(function () { signalExecution(x, 'timeout'); }, timeout);
+    drainExecution(x);
+    return { executionId: id, pid: s.pid, pgid: s.pgid };
+  });
+}
+function fsRemove(path, recursive) {
+  var st = kfs.lstat(path); if (!st) throw fsError('lstat', path);
+  if ((st.mode & 0o170000) !== 0o040000) {
+    if (kfs.unlink(path) === null) throw fsError('unlink', path); return;
+  }
+  if (recursive) fsList(path).forEach(function (e) { fsRemove((path === '/' ? '' : path) + '/' + e.name, true); });
+  if (kfs.rmdir(path) === null) throw fsError('rmdir', path);
+}
+function processSnapshot() {
+  var surfaces = [];
+  if (kernel && kernel._surfaces) kernel._surfaces.forEach(function (s) { surfaces.push(s); });
+  var byPid = Object.create(null);
+  surfaces.forEach(function (s) {
+    (byPid[s.pid] || (byPid[s.pid] = [])).push({ id: s.sid, title: s.title || '', width: s.w, height: s.h,
+      transport: s.bitmap ? 'bitmap' : 'shared-memory', parentId: s.parentSid || null });
+  });
+  var out = [];
+  if (!kernel || !kernel._procs) return out;
+  kernel._procs.forEach(function (p) {
+    out.push({ pid: p.pid, ppid: p.ppid, pgid: p.pgid, sid: p.sid, state: p.state,
+      command: (p.argv || [p.path]).join(' '), path: p.path, cwd: p.cwd, startedAt: p.startMs,
+      exitStatus: p.state === 'zombie' ? p.exit : null, controllingTerminal: !!p.tty,
+      surfaces: byPid[p.pid] || [] });
+  });
+  return out.sort(function (a, b) { return a.pid - b.pid; });
+}
+function handleRpc(m) {
+  var q = m.request || {}, id = m.id;
+  try {
+    var v;
+    switch (q.op) {
+      case 'system-info': v = { mode: self.__bootMode || '', imageVersion: self.__imageVersion || null, protocolVersion: 2 }; break;
+      case 'terminal-list': v = Array.from(terminals.entries()).map(function (x) { return { id: x[0], pid: x[1].pid }; }); break;
+      case 'fs-list': v = fsList(q.path); break;
+      case 'fs-stat': { var st = kfs.lstat(q.path); v = st ? { kind: (st.mode & 0o170000) === 0o040000 ? 'directory' : 'file', size: st.size, mode: st.mode, mtimeMs: st.mtime * 1000 + Math.floor((st.mtimeNsec || 0) / 1e6) } : null; break; }
+      case 'fs-read': { var b = fsReadRange(q.path, q.offset, q.length); rpcReply(id, true, b.buffer, [b.buffer]); return; }
+      case 'fs-write': v = OS_COMMON.writeFileGuarded(kfs, q.path, new Uint8Array(q.bytes), q.mode || 0o644, { exclusive: !!q.exclusive, ifUnchanged: q.ifUnchanged || null }); break;
+      case 'fs-append': fsAppend(q.path, new Uint8Array(q.bytes), q.mode, q.sync); v = null; break;
+      case 'fs-mkdir': if (kfs.mkdir(q.path, q.mode || 0o755) === null) throw fsError('mkdir', q.path); v = null; break;
+      case 'fs-rename': OS_COMMON.renameGuarded(kfs, q.from, q.to, { noReplace: !!q.noReplace }); v = null; break;
+      case 'fs-remove': fsRemove(q.path, !!q.recursive); v = null; break;
+      case 'process-list': v = processSnapshot(); break;
+      case 'process-signal': { var kr = kernel.kill(q.pid | 0, q.signal | 0, null); if (kr.errno) throw { code: kr.errno, message: 'kill ' + q.pid + ': ' + kr.errno }; v = null; break; }
+      case 'exec-start': startExecution(q.command, q.timeoutMs, q.executionId).then(function (result) { rpcReply(id, true, result); }, function (e) { rpcReply(id, false, { code: e.code || 'EIO', message: e.message || String(e) }); }); return;
+      case 'exec-abort': { var exid=String(q.executionId),ex=executions.get(exid);if(ex)signalExecution(ex,'abort');else{pendingExecutionAborts.add(exid);setTimeout(function(){pendingExecutionAborts.delete(exid)},30000)}v=null;break; }
+      case 'surface-attach': {
+        var sf = kernel._surfaces.get(q.surfaceId | 0); if (!sf) throw { code: 'ENOENT', message: 'surface not found' };
+        attachedSurface = sf.sid; attachedSize = { w: Math.max(1, q.width | 0), h: Math.max(1, q.height | 0) };
+        kernel.surfaceAttach(sf.sid, attachedSize.w, attachedSize.h); surfaceSeq = -1;
+        if (!surfaceTimer) pumpSurface(); v = null; break;
+      }
+      case 'surface-detach': if (attachedSurface === (q.surfaceId | 0)) { attachedSurface = 0; surfaceSeq = -1; } v = null; break;
+      default: throw { code: 'ENOSYS', message: 'unsupported kernel operation: ' + q.op };
+    }
+    rpcReply(id, true, v);
+  } catch (e) { rpcReply(id, false, e && e.message ? { code: e.code || 'EIO', message: e.message } : e); }
+}
+function drainTerminal(id) {
+  var s = terminals.get(id); if (!s) return;
+  var chunks = s.pty.out.buf;
+  if (chunks.length) {
+    var bytes = Uint8Array.from(chunks.splice(0));
+    post({ type: 'terminal-output', id: id, bytes: bytes }, [bytes.buffer]);
+    kernel._pipeNotify(s.pty.out);
+  }
+  if (!s.pty.out.wOpen) {
+    terminals.delete(id);
+    post({ type: 'terminal-exited', id: id, status: s.pcb && s.pcb.exit !== undefined ? s.pcb.exit : null });
+    return;
+  }
+  if (terminals.has(id)) setTimeout(function () { drainTerminal(id); }, 8);
+}
+function newTerminal(m) {
+  var id = nextTerminalId++;
+  kernel.openTerminal({ cols: m.cols, rows: m.rows }).then(function (s) {
+    terminals.set(id, s); post({ type: 'terminal-opened', id: id, pid: s.pid }); drainTerminal(id);
+  }).catch(function (e) { post({ type: 'terminal-error', id: id, msg: String(e) }); });
+}
+// Deferred CLIP_GET refresh state (the clipboard seam — see onClipRead in
+// the Kernel opts below): parked readers sharing one page round-trip, the
+// freshness stamp that dedupes back-to-back reads, and the timeout backstop
+// that keeps the always-done contract. The freshness window is scoped to
+// the pids the last refresh actually SERVED (#562): its one purpose is to
+// let a single consumer's size-then-read pair (SDL_GetClipboardText, the
+// clipio helpers — two CLIP_GETs milliseconds apart) cost ONE round-trip.
+// A pid-blind window also served one process's refresh to the NEXT
+// process's first paste — with the host clipboard rewritten in between,
+// that first paste read a stale slot ("first paste fresh by construction"
+// broken; os-loopguard compiled fixture N from clipboard N-1).
+var CLIP_FRESH_MS = 300, CLIP_READ_TIMEOUT_MS = 10000;
+var clipReadPending = [];    // [{pid, done}] parked on the in-flight round-trip
+var clipReadTimer = null;
+var clipFreshAt = -1e9;
+// Pids the stamped refresh is fresh FOR: a Set for a round-trip settle (only
+// the consumers that trip served), null for "every pid" (the host-paste-files
+// stamp below — the staged fmt-2 slot is authoritative for whichever process
+// the forwarded chord lands in).
+var clipFreshPids = null;
+function clipReadSettle() {
+  if (clipReadTimer !== null) { clearTimeout(clipReadTimer); clipReadTimer = null; }
+  clipFreshAt = Date.now();
+  var served = clipReadPending;
+  clipReadPending = [];
+  clipFreshPids = new Set();
+  for (var i = 0; i < served.length; i++) clipFreshPids.add(served[i].pid);
+  for (var j = 0; j < served.length; j++) served[j].done();
+}
+// Host keyboard-scheme auto-detect hint (META-ARROW-KEYBIND.md decision 4).
+// os.html reads navigator (or a ?hostkeys= test override) and passes the
+// verdict on THIS worker's URL, because startBoot() runs on load — before any
+// postMessage could arrive. 'mac' seeds the macos scheme as the fresh-volume
+// default; anything else (incl. absent) is a no-op = the baked windows scheme.
+var HOST_PLATFORM = (function () {
+  try {
+    return new URLSearchParams(self.location.search).get('hostkeys') || 'other';
+  } catch (e) { return 'other'; }
+})();
+
+// Spawn trace (ticket #350): a ?spawntrace=1 page param rides this worker's
+// URL (the hostkeys pattern — createWorker runs long before any postMessage
+// seam could deliver a flag race-free). Default OFF; when off, the only
+// residual cost anywhere is two clock reads at the top of process-worker.js.
+var SPAWN_TRACE = (function () {
+  try {
+    return new URLSearchParams(self.location.search).get('spawntrace') === '1';
+  } catch (e) { return false; }
+})();
+var TRACE_PENDING = Object.create(null);   // pid -> kernel-side stamps
+function traceNow() { return performance.timeOrigin + performance.now(); }
+// Merge the worker's phase stamps with ours and hand the page one flat
+// record; the page merges fragments by pid onto window.__spawnTraces
+// (agent probe). Pending entries are kept for the session — trace mode is
+// a profiling session, and a fragment can arrive per event (instantiate,
+// first output, exit) for one pid.
+function traceDone(m) {
+  var k = TRACE_PENDING[m.pid] || null;
+  post({ type: 'spawn-trace', trace: Object.assign({ pid: m.pid }, k || {}, m.tr) });
+}
+
+// Warm worker pool (ticket #351 — the project's refill-on-take design). Workers stay
+// SINGLE-USE: each realm boots once and dies at process exit, exactly as
+// before — there is NO reuse, NO reset, NO re-arm handshake, and nothing is
+// ever re-shared into a used realm. The pool only moves the bootstrap cost
+// (realm create + importScripts — 3.2 + 11.2 ms of a 16.8 ms p50 spawn,
+// #350's measurement) OFF the interactive critical path: a pool entry is a
+// constructed-but-never-booted Worker whose top-level importScripts runs in
+// the background; postMessage queues, so it is usable the instant it exists
+// and no readiness protocol is needed. Invariant: free depth is constant —
+// take one, its replacement's creation starts in the same step (the cold-
+// drinks-in-a-fridge rule). A drained pool (before the first spawn, after
+// idle teardown, POOL_DEPTH=0) degrades to today's synchronous create.
+//
+// Sizing is #350's data, not guesswork: refill ≈ 13–15 ms, pipeline burst
+// arrival ≈ 10–11 ms/member, 3-way concurrent importScripts does not
+// inflate — depth 3 covers a 3-stage pipeline with headroom. ?pooldepth= /
+// ?poolidle= ride this worker's URL (the hostkeys pattern) as test/profiling
+// seams: pooldepth=0 IS the pre-#351 spawn path (profile baselines),
+// poolidle shortens the teardown wait so the e2e can see it.
+var POOL_DEPTH = (function () {
+  try {
+    var v = new URLSearchParams(self.location.search).get('pooldepth');
+    return v === null ? 3 : Math.max(0, v | 0);
+  } catch (e) { return 3; }
+})();
+var POOL_IDLE_MS = (function () {
+  try {
+    var v = new URLSearchParams(self.location.search).get('poolidle');
+    return v === null ? 60000 : Math.max(1, v | 0);
+  } catch (e) { return 60000; }
+})();
+var pool = [];             // free entries {w, born}, FIFO — oldest is warmest
+var poolIdleTimer = null;
+var poolStats = { depth: POOL_DEPTH, idleMs: POOL_IDLE_MS, created: 0,
+                  warmTakes: 0, coldCreates: 0, evicted: 0, tornDown: 0,
+                  served: 0 };
+function poolMake() {
+  var ent = { w: new Worker('process-worker.js'), born: traceNow() };
+  poolStats.created++;
+  // A worker that dies while pooled (importScripts fetch failure, OOM) must
+  // never be handed to a spawn — its boot message would vanish and the
+  // process would hang. Evict it; the next spawn's fill-to-depth heals the
+  // hole. Deliberately NOT an immediate replace: a persistent failure (dev
+  // server gone) must not tight-loop worker churn.
+  ent.w.onerror = function () {
+    var i = pool.indexOf(ent);
+    if (i >= 0) {
+      pool.splice(i, 1);
+      poolStats.evicted++;
+      ent.w.terminate();
+      post({ type: 'boot-log', msg: '[kernel] warm pool: evicted a failed idle worker' });
+    }
+  };
+  return ent;
+}
+// Restore the constant free depth (covers the per-take replacement, eviction
+// holes, and the post-teardown re-arm in one rule) and reset the idle clock.
+function poolFill() {
+  while (pool.length < POOL_DEPTH) pool.push(poolMake());
+  if (poolIdleTimer !== null) clearTimeout(poolIdleTimer);
+  poolIdleTimer = null;
+  if (!pool.length) return;
+  // Idle teardown: N booted realms are not held forever. No spawn for
+  // POOL_IDLE_MS -> terminate the free entries; the next spawn is cold
+  // (today's path) and re-arms the pool. Bounded waste by construction:
+  // at most POOL_DEPTH unused creations per idle episode.
+  poolIdleTimer = setTimeout(function () {
+    poolIdleTimer = null;
+    poolStats.tornDown += pool.length;
+    pool.forEach(function (ent) { ent.w.terminate(); });
+    pool = [];
+  }, POOL_IDLE_MS);
+}
+
+self.onmessage = function (e) {
+  var m = e.data;
+  if (!m) return;
+  if (m.type === 'rpc') {
+    if (!tty) { rpcReply(m.id, false, { code: 'EAGAIN', message: 'kernel is not ready' }); return; }
+    handleRpc(m); return;
+  }
+  if (m.type === 'surface-input') {
+    if (!tty || !attachedSurface) return;
+    routeSurfaceInput(m.ev); return;
+  }
+  // Two-tab guard (todos/0045): boot-retry must bypass the pending queue —
+  // it drives the boot, it can't wait for one.
+  if (m.type === 'boot-retry') { startBoot(); return; }
+  // Warm-pool probe (ticket #351): answered even before (or without) a boot
+  // — the two-tab guard leg asserts a LOCKED tab created zero pool workers,
+  // and a queued probe would never be answered there.
+  if (m.type === 'pool-stats') {
+    post({ type: 'pool-stats',
+           stats: Object.assign({ free: pool.length }, poolStats) });
+    return;
+  }
+  if (!tty) { pending.push(m); return; }
+  if (m.type === 'terminal-new') newTerminal(m);
+  else if (m.type === 'terminal-input') { var si = terminals.get(m.id); if (si) si.tty.input(typeof m.data === 'string' ? m.data : new Uint8Array(m.data)); }
+  else if (m.type === 'terminal-resize') { var sr = terminals.get(m.id); if (sr) sr.tty.resize(m.cols | 0, m.rows | 0); }
+  else if (m.type === 'terminal-close') { var sc = terminals.get(m.id); if (sc) { kernel.closeTerminal(sc); terminals.delete(m.id); post({ type: 'terminal-closed', id: m.id, reason: 'user' }); } }
+  else if (m.type === 'input') tty.input(typeof m.data === 'string' ? m.data : new Uint8Array(m.data));
+  else if (m.type === 'resize') tty.resize(m.cols | 0, m.rows | 0);
+  else if (m.type === 'eof') tty.eof();
+  else if (m.type === 'clipboard') {
+    // Host -> gucOS (ticket #79): the page's focus/paste-chord sync read the
+    // host clipboard; land it in the kernel slot as fmt 1 (UTF-8 text). An
+    // empty read is ignored — never blank a gucOS copy over "host had
+    // nothing" (the page filters too; this is the belt to its braces).
+    if (typeof m.text === 'string' && m.text) {
+      kernel.clipSet(1, new TextEncoder().encode(m.text));
+    }
+  } else if (m.type === 'clip-read-done') {
+    // The page's clip-read refresh settled; any slot update arrived just
+    // before this on the same FIFO channel. Wake the parked readers. A
+    // done that raced the timeout backstop still stamps freshness — the
+    // page really did just read the host clipboard.
+    clipReadSettle();
+  }
+};
+
+// Host-file drop (todos/0067): the page posts each dropped File's name +
+// bytes; the kernel writes them under /root/Desktop, where /bin/wm's coarse
+// per-second re-read (desk_load) grows an icon with no notify plumbing.
+// Direct kernel-side fs write — no process, no fd RPC round-trip. Policy:
+// the name is reduced to one sanitized path component, collisions get a
+// "-N" suffix before the extension (dropping never overwrites what's
+// already there), and payloads over the sanity cap are refused. Feedback
+// rides boot-log (the status line + __osLogs — visible on both VTs; the
+// tty byte stream stays program-output-clean).
+var DROP_DIR = '/root/Desktop';
+var DROP_MAX = 128 * 1024 * 1024;   // sanity cap, not a quota
+// One path component, sanitized: basename + control-char strip; empty or
+// degenerate ('.', '..') collapses to '' — the caller supplies a stand-in.
+function sanComp(s) {
+  var n = String(s || '').split('/').pop().split('\\').pop()
+    .replace(/[\x00-\x1f\x7f]/g, '').trim();
+  return (!n || n === '.' || n === '..') ? '' : n;
+}
+// Collision policy (0067): foo.gb -> foo-1.gb, foo-2.gb, … (lstat, not
+// stat — a dangling symlink still owns its name); null after 99.
+function uniqName(dir, name) {
+  var dot = name.lastIndexOf('.');
+  var stem = dot > 0 ? name.slice(0, dot) : name;
+  var ext = dot > 0 ? name.slice(dot) : '';
+  var final = name;
+  for (var i = 1; kfs.lstat(dir + '/' + final) !== null; i++) {
+    if (i > 99) return null;
+    final = stem + '-' + i + ext;
+  }
+  return final;
+}
+// Tree drops (todos/0398): a directory drop's files arrive with a
+// tree-relative `rel` — the dropped ROOT is uniquified ONCE per drop
+// episode (so a folder never merges into an existing one) and remembered
+// here for the episode's remaining files.
+var dropEp = { id: -1, roots: null };
+function dropFile(m) {
+  var note = function (msg) { post({ type: 'boot-log', msg: '[drop] ' + msg }); };
+  var bytes = new Uint8Array(m.bytes);
+  var comps = String(m.rel || m.name || '').split('/')
+    .map(sanComp).filter(function (c) { return c !== ''; });
+  if (!comps.length) comps = ['dropped'];
+  var name = comps[comps.length - 1];
+  if (bytes.length > DROP_MAX) {
+    note(name + ': refused (' + bytes.length + ' bytes > ' + DROP_MAX + ' cap)');
+    return;
+  }
+  try {
+    kfs.mkdir(DROP_DIR, 0o755);   // self-heal a deleted Desktop (EEXIST is fine)
+    var destDir = DROP_DIR;
+    if (comps.length > 1) {
+      var ep = m.episode | 0;
+      if (dropEp.id !== ep) dropEp = { id: ep, roots: {} };
+      var root = dropEp.roots[comps[0]];
+      if (!root) {
+        root = uniqName(DROP_DIR, comps[0]);
+        if (!root) { note(comps[0] + ': refused (99 name collisions)'); return; }
+        dropEp.roots[comps[0]] = root;
+      }
+      var dirs = [root].concat(comps.slice(1, -1));
+      for (var d = 0; d < dirs.length; d++) {
+        destDir += '/' + dirs[d];
+        kfs.mkdir(destDir, 0o755);           // EEXIST is fine
+      }
+      // Inside a freshly-uniquified root the tree's own names can't
+      // collide — the leaf writes as-is.
+    } else {
+      name = uniqName(DROP_DIR, name);
+      if (!name) { note(comps[0] + ': refused (99 name collisions)'); return; }
+    }
+    var path = destDir + '/' + name;
+    OS_COMMON.writeFile(kfs, path, bytes, 0o644);
+    // Durability (the acceptance's reload-survival): fsync flushes the
+    // owning volume's store to OPFS.
+    var fd = kfs.open(path, 0, 0);
+    if (fd !== null) { kfs.fsync(fd); kfs.close(fd); }
+    note(name + ' -> ' + path + ' (' + bytes.length + ' bytes)');
+  } catch (e) {
+    note(name + ': write failed — ' + String((e && e.message) || e));
+  }
+}
+
+// Host paste staging (todos/0398 D6): pasted files land in a hidden
+// staging dir — WIPED and repopulated per host paste (no collision
+// suffixes needed; paste-twice re-pastes the same staged list, copy
+// semantics) — and the list is published on the kernel slot as an
+// ordinary fmt-2 "copy" file list, so every existing in-OS paste consumer
+// (desk_paste, fileman IDM_PASTE, fo_copy's uniquifier) works unchanged.
+// Embedder-side clipSet fires no onClipboard (no host echo loop); the
+// freshness stamp short-circuits the forwarded chord's clip-read refresh
+// (the belt — the page's shadow-text memo is the load-bearing guard).
+// Page->worker FIFO lands this BEFORE the forwarded paste chord.
+var STAGE_DIR = '/root/.hoststage';
+function hostPasteFiles(m) {
+  var note = function (msg) { post({ type: 'boot-log', msg: '[paste] ' + msg }); };
+  try {
+    kfs.mkdir(STAGE_DIR, 0o700);   // EEXIST is fine
+    // Wipe: flat by construction — a paste event cannot carry a folder.
+    var dh = kfs.opendir(STAGE_DIR);
+    if (dh !== null) {
+      var old = [];
+      for (var ent = kfs.readdir(dh); ent !== null; ent = kfs.readdir(dh))
+        if (ent.name !== '.' && ent.name !== '..') old.push(ent.name);
+      kfs.closedir(dh);
+      for (var i = 0; i < old.length; i++) kfs.unlink(STAGE_DIR + '/' + old[i]);
+    }
+    var paths = [];
+    var files = m.files || [];
+    for (var j = 0; j < files.length; j++) {
+      var bytes = new Uint8Array(files[j].bytes);
+      var name = sanComp(files[j].name) || 'pasted';
+      if (bytes.length > DROP_MAX) {
+        note(name + ': refused (' + bytes.length + ' bytes > ' + DROP_MAX + ' cap)');
+        continue;
+      }
+      var fin = uniqName(STAGE_DIR, name);   // same-paste dupes only (dir was wiped)
+      if (!fin) continue;
+      OS_COMMON.writeFile(kfs, STAGE_DIR + '/' + fin, bytes, 0o644);
+      paths.push(STAGE_DIR + '/' + fin);
+    }
+    if (paths.length) {
+      kernel.clipSet(2, new TextEncoder().encode('copy\n' + paths.join('\n') + '\n'));
+      clipFreshAt = Date.now();
+      clipFreshPids = null;   // fresh for EVERY pid — see the state comment
+      note(paths.length + ' file(s) staged');
+    }
+  } catch (e) {
+    note('staging failed — ' + String((e && e.message) || e));
+  }
+}
+
+function createWorker(procSpec) {
+  var k0 = SPAWN_TRACE ? traceNow() : 0;   // spawn trace (#350): spawn entry
+  // Take (ticket #351): oldest entry first — it has had the longest to
+  // finish importScripts. Empty pool degrades to the synchronous create.
+  var ent = pool.shift() || null;
+  if (ent) { ent.w.onerror = null; poolStats.warmTakes++; }
+  else poolStats.coldCreates++;
+  var w = ent ? ent.w : new Worker('process-worker.js');
+  // Refill ON TAKE: the replacement's creation starts here, concurrent with
+  // the just-spawned process (#350 measured 3-way import concurrency free).
+  poolFill();
+  // Single-use invariant (#351 acceptance 3): a worker serves EXACTLY ONE
+  // process, ever. pool.shift() plus fresh ctors make a second serving
+  // structurally impossible; this tripwire keeps it a LOUD spawn failure
+  // (kernel.js maps the throw to EAGAIN + a kernel log) instead of a
+  // silently corrupted realm if a future edit breaks that.
+  if (w.__pwServedPid !== undefined) {
+    throw new Error('warm pool: worker already served pid ' + w.__pwServedPid +
+                    ' — single-use invariant violated (refusing pid ' + procSpec.pid + ')');
+  }
+  w.__pwServedPid = procSpec.pid;
+  poolStats.served++;
+  var k1 = SPAWN_TRACE ? traceNow() : 0;   // worker acquired (take or ctor)
+  var exitCb = null;
+  w.postMessage({
+    type: 'boot',
+    spawnTrace: SPAWN_TRACE,
+    pid: procSpec.pid, ppid: procSpec.ppid, pgid: procSpec.pgid,
+    path: procSpec.path, argv: procSpec.argv, envp: procSpec.envp,
+    cwd: procSpec.cwd, actions: procSpec.actions, flags: procSpec.flags,
+    image: procSpec.image,
+    module: procSpec.module || null,   // pre-compiled Module (todos/0037)
+    kernelPage: procSpec.kernelPage,
+    ttySab: procSpec.ttySab || null,
+    brokered: !!procSpec.brokered,
+    // Read-only volume (todos/0180): { prefix, sab } — the SAB shares.
+    ro: procSpec.ro || null,
+    // SPSC pipe rings (todos/0181): [{fd, end, sab}] — the SABs share.
+    pipeRings: procSpec.pipeRings || null,
+  });
+  if (SPAWN_TRACE) {
+    TRACE_PENDING[procSpec.pid] = {
+      path: procSpec.path,
+      argv0: (procSpec.argv && procSpec.argv[0]) || '',
+      hadModule: !!procSpec.module,
+      warm: !!ent,          // #351: took a pooled worker (t0/t1 predate k0!)
+      wBorn: ent ? ent.born : k0,   // pool-entry creation time (age = k0-wBorn)
+      k0: k0,               // kernel thread: spawn entry
+      k1: k1,               // kernel thread: worker acquired (take or ctor)
+      k2: traceNow(),       // kernel thread: boot message posted
+    };
+  }
+  return {
+    postMessage: function (m) { w.postMessage(m); },
+    onMessage: function (fn) {
+      w.onmessage = function (ev) {
+        var d = ev.data;
+        // Spawn trace (#350): consume the trace record here — it must not
+        // reach kernel.js's process-message handler.
+        if (SPAWN_TRACE && d && d.type === 'spawn-trace') { traceDone(d); return; }
+        fn(d);
+      };
+    },
+    // Browsers have no worker 'exit' event; an uncaught error in the worker
+    // is the observable equivalent of silent death (kernel treats it as
+    // termsig SIGSEGV when no 'exited'/'crashed' message preceded it).
+    onExit: function (fn) { exitCb = fn; w.onerror = function () { if (exitCb) exitCb(); }; },
+    terminate: function () { w.terminate(); },
+  };
+}
+
+// Two-tab boot guard (todos/0045): two tabs would run two KERNELS — two
+// process tables, two compositors, two fd brokers — over the same OPFS
+// images; BlockFS's dual-instance coherence does not cover that. A Web Lock
+// named after the image pair (so unrelated dev pages on this origin never
+// collide) is taken BEFORE any OPFS mount and held for the worker's
+// lifetime — the browser releases it when the tab closes, including crashes.
+// ifAvailable keeps it non-blocking: the losing tab gets {type:'boot-locked'}
+// with NOTHING mounted, and the page offers retry (no steal in v1). The
+// winning callback parks on a forever-pending promise — the Web Locks idiom
+// for "hold until the agent dies".
+var SYS_IMG = 'os-system.v5.img';
+var ROOT_IMG = 'os-root.v5.img';
+var BOOT_LOCK = 'gucos:' + SYS_IMG + '+' + ROOT_IMG;
+function acquireBootLock() {
+  if (typeof navigator === 'undefined' || !navigator.locks) {
+    return Promise.resolve(true);   // no Web Locks API — boot unguarded
+  }
+  return new Promise(function (resolve) {
+    navigator.locks.request(BOOT_LOCK, { ifAvailable: true }, function (lock) {
+      resolve(!!lock);
+      if (lock) return new Promise(function () {});   // hold forever
+    }).catch(function () { resolve(false); });
+  });
+}
+
+// Open (creating if absent) a raw OPFS-backed byte store.
+async function opfsStore(name) {
+  var root = await navigator.storage.getDirectory();
+  var fh = await root.getFileHandle(name, { create: true });
+  var h = await fh.createSyncAccessHandle();
+  return new BLOCK_FS.SyncAccessHandleStore(h);
+}
+
+// Copy a fetched blob into an OPFS store, superblock LAST: a crash mid-copy
+// leaves no magic, so the next boot sees "stale" and re-materializes.
+function materializeBlob(store, bytes) {
+  store.resize(0);
+  if (bytes.length > 256) store.setBytes(256, bytes.subarray(256));
+  store.setBytes(0, bytes.subarray(0, Math.min(256, bytes.length)));
+  store.flush();
+}
+
+async function boot() {
+  // CLI fork: xterm needs no GPU, compositor, canvas, or WM.
+  if (!(await acquireBootLock())) {
+    booting = false;               // let a boot-retry re-enter
+    post({ type: 'boot-locked' });
+    return;
+  }
+  post({ type: 'boot-log', msg: 'mounting BlockFS on OPFS…' });
+  var manifest = await (await fetch('image.json')).json();
+  var seedIo = {
+    readAsset: function (name) {
+      return fetch(name).then(function (r) {
+        if (!r.ok) throw new Error(name + ': HTTP ' + r.status);
+        return r.text();
+      });
+    },
+    // bin entries (game data: gameboy ROMs) are repo-relative binaries;
+    // seedEntries' chain awaits the promise.
+    readBinary: function (p) {
+      return fetch('../' + p).then(function (r) {
+        if (!r.ok) throw new Error(p + ': HTTP ' + r.status);
+        return r.arrayBuffer();
+      }).then(function (ab) { return new Uint8Array(ab); });
+    },
+    // project entries build repo-relative bin.json trees; the compiler
+    // needs a SYNCHRONOUS file reader, so use sync XHR — legal in a
+    // worker, and baking is a one-off (cached in the blob afterwards).
+    buildProject: function (proj) {
+      // Memoize reads INCLUDING misses: include resolution probes several
+      // directories per #include across ~40 TUs, which is ~18k lookups for
+      // the hush build but only a few hundred distinct paths — uncached,
+      // each one is a BLOCKING localhost round trip and first boot spends
+      // ~7s in XHR instead of ~1.5s compiling. Safe because the tree can't
+      // change mid-bake.
+      var xhrCache = new Map();
+      return OS_COMMON.buildProject(CompilerJS, proj, function (p) {
+        if (xhrCache.has(p)) {
+          var hit = xhrCache.get(p);
+          if (hit === null) throw new Error(p + ': HTTP 404 (cached)');
+          return hit;
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '../' + p, false /* synchronous */);
+        xhr.send(null);
+        if (xhr.status !== 200) {
+          xhrCache.set(p, null);
+          throw new Error(p + ': HTTP ' + xhr.status);
+        }
+        xhrCache.set(p, xhr.responseText);
+        return xhr.responseText;
+      });
+    },
+    log: function (m) { post({ type: 'boot-log', msg: m }); },
+  };
+
+  // The system blob (todos/0040): a sealed, read-only BlockFS image mounted
+  // at /usr. Materialize when the OPFS copy is missing or version-stale
+  // ("upgrade = swap the blob"): prefer a prebaked os/os-system.img served
+  // beside the page (tools/mkimage.js output — zero compilation on the boot
+  // path), else bake in-worker (the no-build-step dev path). New OPFS names
+  // orphan the pre-flip os-system.v4.img/os-user.v4.img pair by design
+  // (the 0026 precedent).
+  var sysStore = await opfsStore(SYS_IMG);
+  var sysMode = 'reused';
+  if (OS_COMMON.bakedVersion(BLOCK_FS, sysStore) < (manifest.version | 0)) {
+    sysMode = null;
+    try {
+      // manifest.image (todos/0249): a DEPLOY may publish the blob under a
+      // content-hashed name (os-system.<sha>.img, immutable cache headers)
+      // and names it here via its transformed image.json. The repo manifest
+      // carries no `image` field, so every dev/test path (serve.js overlay
+      // swaps, boot.js, the fixtures) keeps fetching the fixed name.
+      var r = await fetch(manifest.image || 'os-system.img');
+      if (r.ok) {
+        var blob = new Uint8Array(await r.arrayBuffer());
+        var memStore = new BLOCK_FS.MemoryByteStore(blob.length);
+        memStore.setBytes(0, blob);
+        if (OS_COMMON.bakedVersion(BLOCK_FS, memStore) >= (manifest.version | 0)) {
+          post({ type: 'boot-log', msg: 'installing prebaked system image (v' +
+            OS_COMMON.bakedVersion(BLOCK_FS, memStore) + ')…' });
+          materializeBlob(sysStore, blob);
+          sysMode = 'fetched';
+        }
+      }
+    } catch (e) { /* no prebaked blob served — fall through to the bake */ }
+    if (!sysMode) {
+      await OS_COMMON.bakeSystemImage(BLOCK_FS, CompilerJS, sysStore, manifest, seedIo);
+      sysMode = 'baked';
+    }
+  }
+  var sysFs = BLOCK_FS.createV4(sysStore, { readonly: true });
+  // Process-side read-only /usr (todos/0180): ONE SAB copy of the sealed
+  // system image, shipped to every process worker at spawn — /usr reads
+  // (fonts, configs, assets) stop crossing the RPC boundary.
+  var roSab = BLOCK_FS.storeToSab(sysStore);
+
+  // The root (writable) volume owns '/' — /etc, /var, /tmp, /root, /dev,
+  // /run. Seeded (skeleton + the manifest's `user` section) exactly once,
+  // when freshly created; upgrades never write here. (Explicit v3Name so a
+  // standalone page's legacy workspace.img on the same origin is never
+  // "migrated" into an OS volume — that file has never existed, so the
+  // legacy path is inert.)
+  var wsRoot = await BLOCK_FS.openWorkspace({ v4Name: ROOT_IMG, v3Name: 'os-root.v3.img' });
+  // /proc (todos/0043): a synthetic kernel-rendered volume — the Kernel
+  // constructor binds itself to it via the mount table. (Worker-global:
+  // the drop-file handler writes through it — todos/0067.)
+  kfs = new BLOCK_FS.MountFS({ '/': wsRoot.fs, '/usr': sysFs, '/proc': new KERNEL.ProcFS() });
+  // The skeleton is idempotent and structural, not user seeding. Repair it on
+  // every boot so an interrupted first seed or a migrated root cannot remain
+  // permanently unbootable because /bin -> /usr/bin is absent.
+  OS_COMMON.initRootVolume(kfs);
+  if (wsRoot.mode === 'fresh') {
+    post({ type: 'boot-log', msg: 'seeding user volume (manifest v' + manifest.version + ')…' });
+    await OS_COMMON.seedEntries(kfs, manifest.user, seedIo);
+    // Baked packages' `seed` content (gucman content-resource design §3.5):
+    // planted from the SEALED BLOB — deliberately NOT from `manifest`, which
+    // here is the RAW fetched image.json (no fold ever runs in the browser),
+    // so a manifest-side design would silently no-op exactly here.
+    var nseed = OS_COMMON.seedBakedSeeds(kfs, function (m) {
+      post({ type: 'boot-log', msg: m });
+    });
+    if (nseed) post({ type: 'boot-log', msg: 'seeded ' + nseed + ' file(s) from baked packages' });
+    // Host keyboard-scheme auto-detect (META-ARROW-KEYBIND.md decision 4):
+    // a Mac host defaults to the macos scheme (admin layer; user config wins).
+    if (OS_COMMON.seedHostKeyScheme(kfs, HOST_PLATFORM))
+      post({ type: 'boot-log', msg: 'host keyboard scheme -> macos (Mac host default)' });
+  }
+  // Persisted host verdict (ticket #96): every boot, fresh or stale root —
+  // keys.h's implicit host-native paste row reads /run/host-platform.
+  OS_COMMON.writeHostPlatform(kfs, HOST_PLATFORM);
+  var ccCompile = OS_COMMON.createCcDriver(CompilerJS, kfs);
+
+  // Kernel text service (todos/0275): the ksvc blob from the sealed system
+  // image, instantiated synchronously in THIS worker. A throw here is a
+  // boot-error (boot()'s catch) — no zombie Canvas2D fallback exists, so a
+  // boot that can't render chrome text must not reach the desktop.
+  var textService = null;
+
+  // The switchable HTTP fetch (ticket #349, NETWORK.md Tier 2.5): OFF —
+  // the cfgstore default — is the bound global fetch, byte-identical to
+  // passing nothing; ON reroutes transfers through the user-run localhost
+  // bridge. Attached to the store layers right after construction, below.
+  var netFetch = OS_COMMON.createNetFetch();
+
+  kernel = new KERNEL.Kernel({
+    fs: kfs,
+    fetch: netFetch,   // #349 — the Tier 2.5 net-bridge wrapper
+    textService: textService,   // todos/0275 — compositor + headless text
+    roImage: { prefix: '/usr', sab: roSab },   // todos/0180
+    vsync: false,
+    createWorker: createWorker,
+    loadImage: function (p) { return OS_COMMON.readFileBytes(kfs, p); },
+    compile: ccCompile,
+    onOutput: function (pid, fd, bytes) { post({ type: 'out', bytes: bytes }); },
+    onProcessStart: function () { post({ type: 'process-changed', processes: processSnapshot() }); },
+    onProcessExit: function (pcb, status) {
+      executions.forEach(function (x) { if (x.pid === pcb.pid) x.rootStatus = status; });
+      post({ type: 'process-changed', processes: processSnapshot() });
+    },
+    onHalt: function (status) { post({ type: 'halt', status: status }); },
+    onPointerLock: function (wanted) { post({ type: 'pointer-lock', wanted: wanted }); },
+    onCursor: function (shape) { post({ type: 'cursor', shape: shape }); },
+    onAudioStream: function () { audioArm(); },   // pump gate, below
+    // gucOS -> host clipboard (ticket #79): a process committed a copy.
+    // Only fmt 1 (UTF-8 text) crosses to the host — fmt 2 file lists carry
+    // OS-absolute paths that mean nothing outside, and clears never blank
+    // the HOST clipboard (an OS-side EmptyClipboard is not host intent).
+    onClipboard: function (clip) {
+      if (!clip || clip.fmt !== 1) return;
+      post({ type: 'clipboard', text: new TextDecoder().decode(clip.bytes) });
+    },
+    // Deferred CLIP_GET (the clipboard seam): the kernel parked a paste
+    // consumer; ask the page to refresh the slot from the host clipboard
+    // inside the still-live activation of the gesture that triggered the
+    // paste. One page round-trip serves every done that joins while it is
+    // in flight, and a completed refresh stays fresh for CLIP_FRESH_MS —
+    // SDL_GetClipboardText's size-then-read pair costs ONE round-trip.
+    // The timeout backstop keeps the always-done contract even if the
+    // page never answers (dead page, wedged permission UI).
+    onClipRead: function (done, pid) {
+      // Fresh only for a pid the last refresh served (#562): the window
+      // exists for one consumer's size-then-read pair, never to hand a
+      // possibly-superseded slot to a different process's first paste.
+      if (Date.now() - clipFreshAt < CLIP_FRESH_MS &&
+          (clipFreshPids === null || clipFreshPids.has(pid))) { done(); return; }
+      clipReadPending.push({ pid: pid, done: done });
+      if (clipReadPending.length > 1) return;   // round-trip already in flight
+      post({ type: 'clip-read' });
+      clipReadTimer = setTimeout(clipReadSettle, CLIP_READ_TIMEOUT_MS);
+    },
+    // Egress (todos/0398): the kernel materialized ONE artifact; hand it to
+    // the page, buffer TRANSFERRED (up to EGRESS_MAX — never structured-
+    // cloned). The page acts inside the still-live transient activation of
+    // the menu click that started the chain: anchor download, or the
+    // Save-As picker for the 'saveas' disposition.
+    onEgress: function (dispo, name, bytes) {
+      // The view is normally the whole buffer (the materializer allocates
+      // exactly); slice defensively if not, then TRANSFER — an artifact can
+      // be EGRESS_MAX-sized and must never be structured-cloned.
+      var buf = (bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength)
+        ? bytes.buffer : bytes.slice().buffer;
+      self.postMessage({ type: 'egress', dispo: dispo, name: name, bytes: buf }, [buf]);
+    },
+    onSurfaceChange: function (kind, surface) {
+      post({ type: kind === 'created' ? 'surface-created' : 'surface-destroyed', surfaceId: surface.sid, pid: surface.pid });
+      post({ type: 'process-changed', processes: processSnapshot() });
+    },
+    log: function (m) { post({ type: 'boot-log', msg: '[kernel] ' + m }); },
+  });
+  tty = kernel.createTty({
+    output: function (b) { post({ type: 'out', bytes: b instanceof Uint8Array ? b.slice() : Uint8Array.from(b) }); },
+    interactiveOut: true,   // xterm IS a human terminal: shells go interactive
+  });
+
+  // The net-bridge toggle rides the same watchPath choke (ticket #349):
+  // a settled write to any `net` store layer — the Network applet's
+  // checkbox, an /etc/net edit — retargets the NEXT transfer, no reboot.
+  OS_COMMON.netFetchAttach(netFetch, kernel, kfs);
+
+  // The audio mixer (todos/0017): one page-owned output ring, kernel-side
+  // mixing on a 20ms pump. The page plays it with host.js's
+  // createAudioReceiver (resumed on first user gesture — autoplay policy).
+  // The pump is gated on live streams (IDLE-POWER audioPump gate): parked
+  // while the stream table is empty, armed by the AUDIO_OPEN hook, and it
+  // disarms itself after a pump that observes an empty table — dying
+  // streams drain first, and pause/resume is SAB-only, so any table entry
+  // keeps it armed (an unpause is otherwise invisible to the kernel).
+  var audioOut = kernel.audioInit({});
+  post({ type: 'audio', sab: audioOut.sab, bufferSize: audioOut.bufferSize,
+         freq: audioOut.freq, channels: audioOut.channels, format: audioOut.format });
+  var audioTimer = null;
+  function audioArm() {
+    if (audioTimer !== null) return;
+    audioTimer = setInterval(function () {
+      kernel.audioPump();
+      if (kernel.audioStreamCount() === 0) { clearInterval(audioTimer); audioTimer = null; }
+    }, 20);
+  }
+  await kernel.boot({
+    path: '/bin/init', argv: ['init'], envp: ['PATH=/usr/local/bin:/bin'], cwd: '/',
+  });
+  // Default-package sync (#419): the browser twin of boot.js's trigger —
+  // eager install of the declared default set on any boot where one is
+  // missing, spawned only when a defaults list exists at all (the shipped
+  // manifest declares none -> no spawn, byte-identical boot). Output lands
+  // on the VT1 boot console; outcome record at /run/gucman-sync.status.
+  if (kfs.stat('/etc/gucman/defaults') || kfs.stat('/usr/share/gucman/defaults')) {
+    await kernel.service({ path: '/bin/gucman', argv: ['gucman', 'sync-defaults'],
+                           envp: ['PATH=/usr/local/bin:/bin'] });
+  }
+  self.__bootMode = sysMode + '/' + wsRoot.mode;
+  self.__imageVersion = manifest.version;
+  post({ type: 'ready', mode: self.__bootMode, imageVersion: manifest.version, protocolVersion: 2 });
+  // Boot pre-fill (ticket #351 plan 3): usually a no-op — the pid-1 spawn's
+  // own refill-on-take already filled the pool, and #350 measured that
+  // concurrent bootstrap costs the boot nothing — but a POOL_DEPTH raise or
+  // an early eviction lands here, and the idle clock (re)arms at ready
+  // either way. The first typed command after a cold boot takes warm.
+  poolFill();
+
+  var queued = pending; pending = [];
+  queued.forEach(function (m) { self.onmessage({ data: m }); });
+}
+
+// Boot entry — also the boot-retry target (todos/0045). `booting` blocks
+// double entry (retry clicks while a boot is in flight or after one won);
+// only the lock-lost path resets it. A real boot failure stays terminal
+// (reload to reboot), as before.
+var booting = false;
+// Failure text for the boot-error panel. This used to be `e.stack` alone,
+// which silently DROPS the message on WebKit: V8 renders stack as
+// "Error: <message>\n  at …", but JavaScriptCore's stack is the bare frame
+// list. So a real iOS boot failure printed frames only — and the message is
+// where the two facts that matter live (WHICH file, WHICH status; see the
+// `p + ': HTTP ' + xhr.status` throw in buildProject above), leaving them to
+// be reconstructed from line numbers. Lead with the message and append the
+// stack only when the engine hasn't already folded it in, so both engines
+// render the same thing once and neither duplicates it.
+function errText(e) {
+  if (!e || typeof e.message !== 'string') return String(e);
+  var head = (e.name || 'Error') + ': ' + e.message;
+  var stack = e.stack ? String(e.stack) : '';
+  if (!stack) return head;
+  return stack.indexOf(e.message) >= 0 ? stack : head + '\n' + stack;
+}
+function startBoot() {
+  if (booting || tty) return;
+  booting = true;
+  boot().catch(function (e) {
+    post({ type: 'boot-error', msg: errText(e) });
+  });
+}
+startBoot();

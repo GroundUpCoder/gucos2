@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "upstreamBaseline": {
+    "commit": "2344fa80d62ad0be6c8184c59c2aeb00ac74142e",
+    "definitionCount": 38,
+    "definitionsSha256": "53f62f5ed9d8e0d31333bc83138e1671522918eaccb1331751c3a9d4a5eba55b",
+    "definitions": [
+      "box2d-clang", "cairodemo", "cpython-clang", "demos", "doom",
+      "doom-clang", "etl-clang", "font-noto-cjk-mono", "font-unifont",
+      "gameboy", "gameboy-clang", "gcode", "git", "glm-clang", "imgui-clang",
+      "jq", "libgit2", "libjpeg", "libnsbmp", "libnsgif", "libpng", "lua",
+      "mgba", "micropython", "netsurf", "netsurf-demos", "ninja-clang",
+      "punes", "quake", "sameboy", "sdldemo", "sent", "sqlite3",
+      "stl4", "tinyrenderer-clang", "wc-rust", "win32", "winmine"
+    ]
+  },
+  "publishedDefinitions": [
+    "gcode", "git", "jq", "libgit2", "libpng", "lua", "micropython", "sqlite3"
+  ],
+  "publishedSourceCompanions": [
+    "cc-sources", "clip-sources", "cmdalt-sources", "coreutils-sources",
+    "curl-sources", "file-gucos-ticket-sources", "gcode-sources", "git-sources",
+    "gucman-sources", "jq-sources", "libc-sources", "lua-sources",
+    "micropython-sources", "open-sources", "pbcopy-sources", "pbpaste-sources",
+    "psh-sources", "sh-sources", "sqlite3-sources", "strace-sources"
+  ],
+  "siblingToolchainDefinitions": [
+    "box2d-clang", "cpython-clang", "doom-clang", "etl-clang", "gameboy-clang",
+    "glm-clang", "imgui-clang", "ninja-clang", "sdldemo", "stl4",
+    "tinyrenderer-clang", "wc-rust"
+  ],
+  "excludedUpstreamDefinitions": [
+    "cairodemo", "demos", "doom", "font-noto-cjk-mono",
+    "font-unifont", "gameboy", "libjpeg", "libnsbmp", "libnsgif", "mgba",
+    "netsurf", "netsurf-demos", "punes", "quake", "sameboy",
+    "sent", "win32", "winmine"
+  ]
+}

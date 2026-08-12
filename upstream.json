@@ -1,0 +1,6 @@
+{
+  "upstream": "c-compiler",
+  "commit": "2344fa80d62ad0be6c8184c59c2aeb00ac74142e",
+  "importedAt": "2026-08-08",
+  "note": "os/guc/ is a byte-identical subset of the c-compiler tree at this commit. See PROVENANCE.md for the exact import set and exclusions; scripts/sync-upstream.sh re-imports and updates this file."
+}

@@ -1,0 +1,38 @@
+build/
+*.wasm
+# The committed wasm binaries: the Rust fixtures (todos/0413 + 0414 +
+# 0415 + 0442). The gucos-rust sibling builds them; test_rust_e2e.js /
+# test_rust_std_e2e.js freshness-check each against a rebuild.
+!tests/kernel/fixtures/hello-rust/hello-rust.wasm
+!tests/kernel/fixtures/alloc-rust/alloc-rust.wasm
+!tests/kernel/fixtures/wc-rust/wc-rust.wasm
+!tests/kernel/fixtures/std-rust/std-rust.wasm
+*.o
+a.out
+.DS_Store
+node_modules
+test-results/
+tools/disasm/index.html
+*.pyc
+# The pinned host-python venv (#483, tools/host-python.js) — derived from the
+# committed .python-version by `uv venv`; worktrees read the main clone's.
+.venv/
+os/os.img
+os/os-system.img
+os/os-system.*.img
+os/os-system.img.tmp-*
+os/os-system.*.img.tmp-*
+os/os-user.img
+media/
+os/os-root.img
+os/*.img.lock
+dist/
+
+# CPython writes bytecode caches next to the source it imports; the shipped
+# package sends them to /var/cache instead (todos/0340), but a host-side probe
+# run against vendor/cpython/Lib will still leave them here.
+vendor/cpython/**/__pycache__/
+
+# The native gcode oracle build (os/gcode/build-native.sh) — ~/.local/bin/gcode
+# symlinks to this artifact (#353).
+os/gcode/gcode

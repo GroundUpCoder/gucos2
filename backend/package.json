@@ -1,0 +1,20 @@
+{
+  "name": "gucos2-backend",
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "start": "node dist/bin/server.js",
+    "build": "rm -rf dist && tsc -p tsconfig-build.json",
+    "dev": "tsx watch src/bin/server.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.3"
+  }
+}

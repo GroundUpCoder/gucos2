@@ -1,0 +1,42 @@
+{
+  "type": "lib",
+  "name": "libgit2",
+  "description": "libgit2 — portable Git library (core only, no networking)",
+  "includes": [
+    "include"
+  ],
+  "sources": [
+    "src/util/alloc.c",
+    "src/util/allocators/stdalloc.c",
+    "src/util/date.c",
+    "src/util/errors.c",
+    "src/util/filebuf.c",
+    "src/util/fs_path.c",
+    "src/util/futils.c",
+    "src/util/hash.c",
+    "src/util/hash/builtin.c",
+    "src/util/hash/collisiondetect.c",
+    "src/util/hash/sha1dc/sha1.c",
+    "src/util/hash/sha1dc/ubc_check.c",
+    "src/util/hash/rfc6234/sha224-256.c",
+    "src/util/pool.c",
+    "src/util/posix.c",
+    "src/util/pqueue.c",
+    "src/util/rand.c",
+    "src/util/regexp.c",
+    "src/util/runtime.c",
+    "src/util/sortedcache.c",
+    "src/util/str.c",
+    "src/util/strlist.c",
+    "src/util/thread.c",
+    "src/util/tsort.c",
+    "src/util/utf8.c",
+    "src/util/util.c",
+    "src/util/varint.c",
+    "src/util/vector.c",
+    "src/util/wildmatch.c",
+    "src/util/zstream.c",
+    "src/util/unix/map.c",
+    "src/util/unix/realpath.c"
+  ]
+}

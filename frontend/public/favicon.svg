@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <style>
+    .tile { fill: #18181b } .ring { stroke: #fafafa } .chev { stroke: #2dd4bf }
+    @media (prefers-color-scheme: light) { .tile { fill: #f4f4f5 } .ring { stroke: #18181b } .chev { stroke: #0d9488 } }
+  </style>
+  <rect class="tile" width="64" height="64" rx="12"/>
+  <path class="ring" d="M44.21 46.55A19 19 0 1 1 44.21 17.45" fill="none" stroke-width="7" stroke-linecap="round"/>
+  <path class="chev" d="M44.21 17.45L52.6 32 44.21 46.55" fill="none" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

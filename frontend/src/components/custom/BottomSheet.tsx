@@ -1,0 +1,11 @@
+// os-owned copy of c/frontend/src/components/custom/BottomSheet.tsx.
+import { useCallback, useEffect, useRef, useState } from 'react';
+const DISMISS_THRESHOLD=120;
+export function BottomSheet({open,onClose,children}:{open:boolean;onClose:()=>void;children:React.ReactNode}) {
+ const [dragY,setDragY]=useState(0),[dragging,setDragging]=useState(false),[visible,setVisible]=useState(false); const start=useRef({x:0,y:0}),lock=useRef<'vertical'|'horizontal'|null>(null),pointer=useRef<number|null>(null);
+ useEffect(()=>{requestAnimationFrame(()=>setVisible(open));},[open]);
+ const close=useCallback(()=>{setVisible(false);setTimeout(onClose,300);},[onClose]);
+ useEffect(()=>{if(!open)return;const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close();};addEventListener('keydown',key);return()=>removeEventListener('keydown',key);},[open,close]);
+ if(!open)return null;
+ return <div className="fixed inset-0 z-50"><div className="absolute inset-0 bg-black/50 transition-opacity duration-300" style={{opacity:visible?1:0}} onClick={close}/><div className="absolute bottom-0 left-0 right-0 bg-background rounded-t-2xl max-h-[85vh] flex flex-col" style={{transform:`translateY(${visible?dragY:innerHeight}px)`,transition:dragging?'none':'transform .3s ease-out, opacity .3s ease-out',touchAction:'none'}} onPointerDown={e=>{if(e.pointerType!=='touch'||(e.target as HTMLElement).closest('button,input'))return;pointer.current=e.pointerId;start.current={x:e.clientX,y:e.clientY};lock.current=null;setDragging(true);(e.target as HTMLElement).setPointerCapture(e.pointerId);}} onPointerMove={e=>{if(!dragging||e.pointerId!==pointer.current)return;const dx=e.clientX-start.current.x,dy=e.clientY-start.current.y;if(!lock.current&&(Math.abs(dx)>10||Math.abs(dy)>10))lock.current=Math.abs(dy)>Math.abs(dx)?'vertical':'horizontal';if(lock.current==='vertical')setDragY(Math.max(0,dy));}} onPointerUp={e=>{if(e.pointerId!==pointer.current)return;if(dragY>=DISMISS_THRESHOLD)close();setDragY(0);setDragging(false);pointer.current=null;lock.current=null;}} data-testid="bottom-sheet"><div className="flex justify-center pt-3 pb-2 shrink-0"><div className="w-10 h-1 rounded-full bg-muted-foreground/40"/></div><div className="overflow-y-auto flex-1 px-4 pb-6">{children}</div></div></div>;
+}

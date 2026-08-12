@@ -1,0 +1,9 @@
+/chat/* /index.html 200
+/chat /index.html 200
+/threads /index.html 200
+/files/* /index.html 200
+/files /index.html 200
+/edit/* /index.html 200
+/term /index.html 200
+/processes /index.html 200
+/settings /index.html 200
