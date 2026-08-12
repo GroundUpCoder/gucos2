@@ -10,7 +10,7 @@ repository with these exact settings:
 - Framework preset: `None`
 - Root directory: `/`
 - Build command:
-  `corepack enable && pnpm --dir frontend install --frozen-lockfile && pnpm --dir frontend build`
+  `npm exec --yes pnpm@10.11.1 -- --dir frontend install --frozen-lockfile && npm exec --yes pnpm@10.11.1 -- --dir frontend build`
 - Build output directory: `frontend/dist`
 - Node version: selected from the repository's `.node-version` (`24.18.0` LTS)
 - Build environment variables: none
