@@ -15,24 +15,28 @@
     ]
   },
   "publishedDefinitions": [
-    "gcode", "git", "jq", "libgit2", "libpng", "lua", "micropython", "sqlite3"
+    "cairo", "cairodemo", "calc", "cjson", "demos", "doom", "freetype",
+    "gameboy", "giflib", "gcode", "git", "jq", "libgit2", "libjpeg",
+    "libnsbmp", "libnsgif", "libpng", "lua", "mgba", "micropython",
+    "netsurf", "netsurf-demos", "paint", "pixman", "punes", "quake",
+    "sameboy", "sent", "sqlite3", "win32", "winmine", "zlib"
   ],
   "publishedSourceCompanions": [
-    "cc-sources", "clip-sources", "cmdalt-sources", "coreutils-sources",
-    "curl-sources", "file-gucos-ticket-sources", "gcode-sources", "git-sources",
+    "cc-sources", "cairodemo-sources", "calc-sources", "clip-sources",
+    "cmdalt-sources", "coreutils-sources", "curl-sources", "demos-sources",
+    "doom-sources", "file-gucos-ticket-sources", "gameboy-sources",
+    "gcode-sources", "git-sources",
     "gucman-sources", "jq-sources", "libc-sources", "lua-sources",
-    "micropython-sources", "open-sources", "pbcopy-sources", "pbpaste-sources",
-    "psh-sources", "sh-sources", "sqlite3-sources", "strace-sources"
+    "mgba-sources", "micropython-sources", "netsurf-sources", "open-sources",
+    "paint-sources", "pbcopy-sources", "pbpaste-sources", "psh-sources",
+    "punes-sources", "quake-sources", "sameboy-sources", "sent-sources",
+    "sh-sources", "sqlite3-sources", "strace-sources", "winmine-sources"
   ],
   "siblingToolchainDefinitions": [
     "box2d-clang", "cpython-clang", "doom-clang", "etl-clang", "gameboy-clang",
     "glm-clang", "imgui-clang", "ninja-clang", "sdldemo", "stl4",
     "tinyrenderer-clang", "wc-rust"
   ],
-  "excludedUpstreamDefinitions": [
-    "cairodemo", "demos", "doom", "font-noto-cjk-mono",
-    "font-unifont", "gameboy", "libjpeg", "libnsbmp", "libnsgif", "mgba",
-    "netsurf", "netsurf-demos", "punes", "quake", "sameboy",
-    "sent", "win32", "winmine"
-  ]
+  "externalDefinitionSources": ["font-noto-cjk-mono", "font-unifont"],
+  "excludedUpstreamDefinitions": []
 }

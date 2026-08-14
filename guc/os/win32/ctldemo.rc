@@ -1,0 +1,50 @@
+/* ctldemo.rc — the 0104 dialog-keyboard acceptance resource (a sidecar
+ * .res pack compiled by tools/win32rc.js, seeded at /usr/bin/ctldemo.res).
+ * A tiny "Options" dialog exercises the whole IsDialogMessage keyboard
+ * story: Tab/Shift+Tab walk the WS_TABSTOP controls, Alt+mnemonic
+ * jumps/presses (the '&'-marked letters), Enter fires the DEFPUSHBUTTON,
+ * Esc = IDCANCEL. Change the ids together with os/win32/ctldemo.c. */
+
+#define IDD_OPTIONS   50
+#define IDC_OPT_EDIT  120
+#define IDC_OPT_CHECK 121
+#define IDOK    1
+#define IDCANCEL 2
+
+#define IDD_ODD       51
+#define IDD_EMBED     52
+
+/* IDD_ODD — the #322 honoring acceptance template (was #318 (iii)'s
+ * negative test): WS_THICKFRAME rides into the window style, DS_CENTER
+ * is WM placement policy (quiet), and Courier New 12 is a REAL font —
+ * the dialog owns the HFONT, controls borrow it, DLU base units come
+ * from its metrics (the selftest asserts all of it; the user32 e2e
+ * asserts the old discard reports are GONE from stderr). */
+IDD_ODD DIALOGEX 0, 0, 120, 60
+STYLE DS_SHELLFONT | WS_POPUP | WS_CAPTION | DS_CENTER | WS_THICKFRAME
+CAPTION "Oddball"
+FONT 12, "Courier New"
+BEGIN
+    DEFPUSHBUTTON "&Done", IDOK, 35, 40, 50, 14
+END
+
+/* IDD_EMBED — the DS_CONTROL|WS_CHILD embedding acceptance (#322): the
+ * dialog must materialize as a CHILD of its owner at the template x,y,
+ * never as a free-floating top-level. */
+IDD_EMBED DIALOGEX 10, 5, 80, 40
+STYLE DS_CONTROL | WS_CHILD | WS_VISIBLE
+FONT 8, "MS Shell Dlg"
+BEGIN
+    EDITTEXT 130, 4, 4, 70, 12
+END
+
+IDD_OPTIONS DIALOGEX 0, 0, 160, 80
+CAPTION "Options"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT         "&Name", -1,            8,  8, 40, 10
+    EDITTEXT      IDC_OPT_EDIT,          50,  6, 100, 12
+    AUTOCHECKBOX  "&Verbose", IDC_OPT_CHECK, 8, 28, 90, 10
+    DEFPUSHBUTTON "&OK", IDOK,           30, 56, 50, 14
+    PUSHBUTTON    "&Cancel", IDCANCEL,   90, 56, 50, 14
+END

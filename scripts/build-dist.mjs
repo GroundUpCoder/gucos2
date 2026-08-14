@@ -8,9 +8,8 @@
 // Caddy). Differences from comguc, all deliberate:
 //   • sources come from the SELF-CONTAINED os/guc mirror (c-compiler pinned
 //     at upstream.json's commit), never from ~/git/c-compiler;
-//   • the package index is the BASE set (no clang/rust sibling repos here —
-//     the gated packages/<n>-clang.json definitions are skipped by mkpkg by
-//     construction);
+//   • native packages consume provenance-pinned overlay artifacts checked
+//     into native-siblings/; Cloudflare never needs either toolchain;
 //   • PWA: manifest + service worker + generated icons, injected into the
 //     served os.html copies at assembly time (guc/ itself stays pristine);
 //   • frontend/public owns the Pages header and routing model; the local
@@ -124,11 +123,18 @@ const IMG_HASHED = `os-system.${imgSha256.slice(0, 16)}.img`;
 fs.copyFileSync(path.join(DIST, 'os', 'os-system.img'), path.join(DIST, 'os', IMG_HASHED));
 console.log(`[build] image published as ${IMG_HASHED} (immutable) + os-system.img (compat)`);
 
-// --- 2. build + copy the gucman package repo (BASE index) -------------------
+// --- 2. build + copy the complete gucman package repo -----------------------
 console.log('[build] building gucman packages via guc/tools/mkpkg.js …');
 const packageSet = JSON.parse(fs.readFileSync(path.join(APP, 'package-repository-set.json'), 'utf8'));
-const CLI_PACKAGES = [...packageSet.publishedDefinitions, ...packageSet.publishedSourceCompanions];
-const mkpkg = spawnSync(process.execPath, ['--experimental-wasm-exnref', path.join(GUC, 'tools', 'mkpkg.js'), '--quiet', `--manifest=${CLI_MANIFEST}`, ...CLI_PACKAGES],
+const CLI_PACKAGES = [...packageSet.publishedDefinitions,
+  ...(packageSet.externalDefinitionSources || []),
+  ...packageSet.siblingToolchainDefinitions,
+  ...packageSet.publishedSourceCompanions];
+const mkpkg = spawnSync(process.execPath, ['--experimental-wasm-exnref', path.join(GUC, 'tools', 'mkpkg.js'),
+  '--quiet', `--manifest=${CLI_MANIFEST}`,
+  '--clang', `--clang-root=${path.join(APP, 'native-siblings', 'clang')}`,
+  '--rust', `--rust-root=${path.join(APP, 'native-siblings', 'rust')}`,
+  ...CLI_PACKAGES],
   { cwd: GUC, stdio: 'inherit' });
 if (mkpkg.status !== 0) { console.error('build: mkpkg failed'); process.exit(1); }
 const PKG_SRC = path.join(GUC, 'dist', 'packages');

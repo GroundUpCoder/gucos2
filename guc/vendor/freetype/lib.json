@@ -1,0 +1,25 @@
+{
+  "type": "lib",
+  "name": "freetype",
+  "description": "FreeType 2.14.1 TrueType font rendering library",
+  "compilerArgs": [
+    "-DFT2_BUILD_LIBRARY",
+    "-DFT_MAKE_OPTION_SINGLE_OBJECT",
+    "-DFT_CONFIG_OPTION_NO_ASSEMBLER"
+  ],
+  "srcRoots": { "freetype": "srclib" },
+  "sources": [
+    "srclib/ftbase.c",
+    "srclib/ftsystem.c",
+    "srclib/ftdebug.c",
+    "srclib/ftinit.c",
+    "srclib/autofit.c",
+    "srclib/ftbitmap.c",
+    "srclib/ftmm.c",
+    "srclib/ftsynth.c",
+    "srclib/sfnt.c",
+    "srclib/truetype.c",
+    "srclib/smooth.c",
+    "srclib/psnames.c"
+  ]
+}

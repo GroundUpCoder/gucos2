@@ -1,0 +1,27 @@
+{
+  "schema": "overlay@1",
+  "id": "rust-apps",
+  "provenance": {
+    "producer": "gucos-rust",
+    "toolchain": "rustc/wasm32-unknown-unknown + clang-simplified libc objects",
+    "builtAtUtc": "2026-08-14T00:14:18.675Z",
+    "artifactRoot": ".",
+    "repo": {
+      "commit": "21ce8164bddfc1bb9fb160d19d1883d4c3590a34",
+      "commitShort": "21ce816",
+      "dirty": false,
+      "branch": "HEAD"
+    }
+  },
+  "dirs": [
+    "/usr/bin"
+  ],
+  "files": {
+    "/usr/bin/wc-rust": {
+      "bin": "wc-rust/wc-rust.wasm",
+      "mode": "0755",
+      "sha256": "bc1112878ee468d09e7f38de4f80f55525ad7b350741e12f15d54b60e2763b7c",
+      "size": 20666
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "bin": true,
+  "name": "ctlpanel",
+  "description": "0089 control panel: Win95 applet-icon hub; Sound (kernel AUDIO_GAIN mixer), System (os-release//proc), Display stub (0049), Date/Time applets as sibling windows",
+  "deps": [
+    "lib.json"
+  ],
+  "sources": [
+    "ctlpanel.c"
+  ]
+}
