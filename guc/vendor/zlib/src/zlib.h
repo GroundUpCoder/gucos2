@@ -2054,4 +2054,43 @@ ZEXTERN int            ZEXPORTVA gzvprintf(gzFile file,
 }
 #endif
 
+/* ---------------- the zlib require block (source-lib design §4.2, tickets
+ * #464/#498) ----
+ * Including this header IS the link metadata (the ft2build.h pattern): the
+ * set below MUST equal vendor/zlib/lib.json sources — the §4.4 drift gate
+ * (os-common requireDriftErrors, run by tools/mkpkg.js +
+ * tools/win32ports.js --check) enforces it. Host-side project builds reach
+ * these TUs through lib.json (srcRoots {z: src} resolves each name to the
+ * SAME path, so the compiler's path-identity dedup no-ops the require);
+ * the in-OS cc resolves them via /usr/local/src -> /usr/src (the srclib
+ * install tiers, planted by the ZLIB source-lib package since #661 — before
+ * that libpng owned this tree, and every zlib consumer had to install a PNG
+ * decoder to get it). Since #631 the
+ * set is ALL 15 upstream libz TUs — the gz* file layer and infback
+ * included — because this header declares gzopen and inflateBack
+ * unconditionally, and a header on the default include path must link
+ * everything it promises.
+ *
+ * ZLIB_NO_REQUIRE_SOURCES (the FT_NO_REQUIRE_SOURCES of this library)
+ * suppresses the block for a consumer that wants the declarations without
+ * the sources. Macro state is per-TU; required-source NAMES dedup
+ * per-compile. */
+#ifndef ZLIB_NO_REQUIRE_SOURCES
+__require_source("z/adler32.c");
+__require_source("z/compress.c");
+__require_source("z/crc32.c");
+__require_source("z/deflate.c");
+__require_source("z/gzclose.c");
+__require_source("z/gzlib.c");
+__require_source("z/gzread.c");
+__require_source("z/gzwrite.c");
+__require_source("z/infback.c");
+__require_source("z/inflate.c");
+__require_source("z/inftrees.c");
+__require_source("z/inffast.c");
+__require_source("z/trees.c");
+__require_source("z/uncompr.c");
+__require_source("z/zutil.c");
+#endif /* !ZLIB_NO_REQUIRE_SOURCES */
+
 #endif /* ZLIB_H */

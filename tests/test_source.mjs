@@ -15,11 +15,12 @@ check('c veneer header geometry retained',layout.includes('h-dvh')&&layout.inclu
 check('c-style responsive dialog/sheet retained',dialog.includes('place-items-end sm:place-items-center')&&dialog.includes('rounded-t-2xl sm:rounded-lg'));
 const pkgSet=JSON.parse(fs.readFileSync(path.join(APP,'package-repository-set.json'),'utf8'));
 const defs=fs.readdirSync(path.join(APP,'guc/packages')).filter(f=>f.endsWith('.json')).map(f=>f.slice(0,-5)).sort();
-const declaredDefs=[...pkgSet.publishedDefinitions,...pkgSet.siblingToolchainDefinitions].sort();
+const declaredDefs=[...pkgSet.publishedDefinitions,...(pkgSet.externalDefinitionSources||[]),...pkgSet.siblingToolchainDefinitions].sort();
 check('every local package definition is published or an explicit sibling-toolchain definition',JSON.stringify(defs)===JSON.stringify(declaredDefs));
 check('every sibling-toolchain definition is mechanically gated',pkgSet.siblingToolchainDefinitions.every(name=>/^native-sibling:(clang|rust)$/.test(JSON.parse(fs.readFileSync(path.join(APP,'guc/packages',name+'.json'),'utf8')).requires||'')));
 check('definition and synthesized-companion names are disjoint',![...pkgSet.publishedDefinitions,...pkgSet.siblingToolchainDefinitions].some(n=>pkgSet.publishedSourceCompanions.includes(n)));
-const upstreamInventory=[...pkgSet.publishedDefinitions,...pkgSet.siblingToolchainDefinitions,...pkgSet.excludedUpstreamDefinitions];
+const upstreamNames=new Set(pkgSet.upstreamBaseline.definitions);
+const upstreamInventory=[...pkgSet.publishedDefinitions,...(pkgSet.externalDefinitionSources||[]),...pkgSet.siblingToolchainDefinitions,...pkgSet.excludedUpstreamDefinitions].filter(n=>upstreamNames.has(n));
 const upstreamProvenance=JSON.parse(fs.readFileSync(path.join(APP,'upstream.json'),'utf8'));
 const pinnedDefinitions=[...pkgSet.upstreamBaseline.definitions].sort();
 const pinnedDigest=crypto.createHash('sha256').update(pinnedDefinitions.join('\n')+'\n').digest('hex');

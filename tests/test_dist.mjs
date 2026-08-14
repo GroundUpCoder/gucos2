@@ -75,6 +75,8 @@ const idx = JSON.parse(fs.readFileSync(path.join(DIST, 'packages', 'index.json')
 const pkgNames = Object.keys(idx.packages);
 const declaredPackageSet = JSON.parse(fs.readFileSync(path.join(APP, 'package-repository-set.json'), 'utf8'));
 const expectedCliPackages = [...declaredPackageSet.publishedDefinitions,
+  ...(declaredPackageSet.externalDefinitionSources || []),
+  ...declaredPackageSet.siblingToolchainDefinitions,
   ...declaredPackageSet.publishedSourceCompanions].sort();
 check('package index is the exact CLI + development-source set',
   JSON.stringify(pkgNames.sort()) === JSON.stringify(expectedCliPackages), pkgNames.join(','));
@@ -88,8 +90,8 @@ for (const [name, p] of Object.entries(idx.packages)) {
   }
 }
 check('every indexed payload is shipped', missingPayloads === 0, `${missingPayloads} missing`);
-for (const gated of ['cpython-clang', 'doom-clang', 'wc-rust']) {
-  check(`gated package ${gated} absent from base index`, !pkgNames.includes(gated));
+for (const native of ['cpython-clang', 'doom-clang', 'wc-rust']) {
+  check(`native package ${native} is published`, pkgNames.includes(native));
 }
 
 // --- PWA assembly -----------------------------------------------------------

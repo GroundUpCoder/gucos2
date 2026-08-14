@@ -1,0 +1,337 @@
+{
+  "schema": "overlay@1",
+  "id": "clang-apps",
+  "provenance": {
+    "producer": "clang-simplified",
+    "toolchain": "cc2wasm",
+    "builtAtUtc": "2026-08-14T00:15:28.840Z",
+    "artifactRoot": ".",
+    "repo": {
+      "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b",
+      "commitShort": "66b2687",
+      "dirty": false,
+      "branch": "HEAD"
+    },
+    "compiler": {
+      "elf": "simple1/out/llvm",
+      "builtFromCommit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b",
+      "dirty": false
+    },
+    "libc": {
+      "vendoredFromRepo": "c-compiler",
+      "vendoredFromCommit": "686700dabf14c5ff633a32bbeefb3ab1fdd37b47"
+    }
+  },
+  "dirs": [
+    "/usr/bin",
+    "/usr/share/doom",
+    "/usr/share/gameboy",
+    "/usr/share/menu/Demos",
+    "/usr/share/menu/Games",
+    "/usr/share/tinyrenderer"
+  ],
+  "files": {
+    "/usr/bin/doom-clang": {
+      "bin": "doom-clang/doom-clang.wasm",
+      "mode": "0755",
+      "sha256": "9d171fc1200dd14129d3588189af4a0a33f3c17cdd0274240b01f487f0654ef6",
+      "size": 440696,
+      "build": {
+        "project": "doom-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-Isrc",
+          "-INuked-OPL3",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "doomgeneric (c-compiler vendor/doom)",
+          "commit": "911e6a78475502c2cf50420050f7fd14b48f9a9b"
+        }
+      }
+    },
+    "/usr/share/doom/DOOM1.WAD": {
+      "bin": "doom-clang/DOOM1.WAD",
+      "mode": "0644",
+      "sha256": "1d7d43be501e67d927e415e0b8f3e29c3bf33075e859721816f652a526cac771",
+      "size": 4196020,
+      "asset": true
+    },
+    "/usr/share/menu/Games/doom-clang": {
+      "link": "/usr/bin/doom-clang"
+    },
+    "/usr/bin/gameboy-clang": {
+      "bin": "gameboy-clang/gameboy-clang.wasm",
+      "mode": "0755",
+      "sha256": "e5167b6e7c9b5984878db18d88eb272a703876652719a686f62c7ff75533b412",
+      "size": 44715,
+      "build": {
+        "project": "gameboy-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "Peanut-GB (c-compiler vendor/gameboy)",
+          "commit": "911e6a78475502c2cf50420050f7fd14b48f9a9b"
+        }
+      }
+    },
+    "/usr/share/menu/Games/gameboy-clang": {
+      "link": "/usr/bin/gameboy-clang"
+    },
+    "/usr/bin/stl4": {
+      "bin": "stl_features4/stl_features4.wasm",
+      "mode": "0755",
+      "sha256": "b1e709ff266d994fb3e9e5330a8a715051517487c2c1eedba7ebc99948105aa9",
+      "size": 16001,
+      "build": {
+        "project": "stl_features4",
+        "cc2wasmFlags": [
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "clang-simplified (in-repo demo)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/menu/Demos/stl4": {
+      "link": "/usr/bin/stl4"
+    },
+    "/usr/bin/sdldemo": {
+      "bin": "sdl_demo/sdl_demo.wasm",
+      "mode": "0755",
+      "sha256": "9de51feb3bcb8f1ef37950666297b1566d2e61fe8b5a0607dc86993381828225",
+      "size": 18292,
+      "build": {
+        "project": "sdl_demo",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "clang-simplified (in-repo demo)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/menu/Demos/sdldemo": {
+      "link": "/usr/bin/sdldemo"
+    },
+    "/usr/bin/box2d-clang": {
+      "bin": "box2d-clang/box2d-clang.wasm",
+      "mode": "0755",
+      "sha256": "3788b78921a4797513f94dc9a695a2c04e1284adfd48480babbeeff0df5d998f",
+      "size": 145738,
+      "build": {
+        "project": "box2d-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-Iwasm/vendor/box2d/include",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "erincatto/box2d v2.4.x (clang-simplified wasm/vendor/box2d)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/menu/Demos/box2d-clang": {
+      "link": "/usr/bin/box2d-clang"
+    },
+    "/usr/bin/imgui-clang": {
+      "bin": "imgui-clang/imgui-clang.wasm",
+      "mode": "0755",
+      "sha256": "07f9ecdaac2eae1f40c9bb30a55bc7c2ca3ee461b12e41eb72b79b71051acfe4",
+      "size": 950087,
+      "build": {
+        "project": "imgui-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-Iwasm/vendor/imgui",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "ocornut/imgui (clang-simplified wasm/vendor/imgui)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/menu/Demos/imgui-clang": {
+      "link": "/usr/bin/imgui-clang"
+    },
+    "/usr/bin/etl-clang": {
+      "bin": "etl-clang/etl-clang.wasm",
+      "mode": "0755",
+      "sha256": "815f5e9e0f2f163a645b896da30063124379d2e931c2680bb4c0e7073fc15656",
+      "size": 8355445,
+      "build": {
+        "project": "etl-clang",
+        "cc2wasmFlags": [
+          "--exceptions",
+          "-DETL_NO_STD_OSTREAM",
+          "-Iwasm/vendor/etl/test",
+          "-Iwasm/vendor/etl/include",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "ETLCPP/etl 20.48.1 (clang-simplified wasm/vendor/etl)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/bin/glm-clang": {
+      "bin": "glm-clang/glm-clang.wasm",
+      "mode": "0755",
+      "sha256": "2c158f2b787ead4e592006327a8152606f4adcd618a22301a0d61d80ef53c0e5",
+      "size": 21514,
+      "build": {
+        "project": "glm-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-Iwasm/vendor/glm",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "g-truc/glm 1.0.1 (clang-simplified wasm/vendor/glm)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/menu/Demos/glm-clang": {
+      "link": "/usr/bin/glm-clang"
+    },
+    "/usr/bin/tinyrenderer-clang": {
+      "bin": "tinyrenderer-clang/tinyrenderer-clang.wasm",
+      "mode": "0755",
+      "sha256": "f06767643df08899943b6dd5290eea4ffbe49eb147355956c8a27685d6f4aff9",
+      "size": 47082,
+      "build": {
+        "project": "tinyrenderer-clang",
+        "cc2wasmFlags": [
+          "--sdl",
+          "-Iwasm/vendor/tinyrenderer",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "ssloy/tinyrenderer 9517998 (clang-simplified wasm/vendor/tinyrenderer)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/share/tinyrenderer/african_head.obj": {
+      "bin": "tinyrenderer-clang/african_head.obj",
+      "mode": "0644",
+      "sha256": "baced4d75f62d7cf2703b5a90d527c43b4f36028b6907f387967bea3d397aa8b",
+      "size": 194973,
+      "asset": true
+    },
+    "/usr/share/tinyrenderer/african_head_diffuse.tga": {
+      "bin": "tinyrenderer-clang/african_head_diffuse.tga",
+      "mode": "0644",
+      "sha256": "78042e9e3e51e1595a64331f03b39a1312273b6f935d6f91c26b334e67ef2bde",
+      "size": 2801531,
+      "asset": true
+    },
+    "/usr/share/tinyrenderer/african_head_nm_tangent.tga": {
+      "bin": "tinyrenderer-clang/african_head_nm_tangent.tga",
+      "mode": "0644",
+      "sha256": "1ed0448b50989b13f6d5671116150caea856326ab2a36714b2cfc98bfcedce11",
+      "size": 3004900,
+      "asset": true
+    },
+    "/usr/share/tinyrenderer/african_head_spec.tga": {
+      "bin": "tinyrenderer-clang/african_head_spec.tga",
+      "mode": "0644",
+      "sha256": "63d8ff7f68c6c070716b3f45eb2344f3f3894af978a29748f9b45183ee80073a",
+      "size": 1000611,
+      "asset": true
+    },
+    "/usr/share/menu/Demos/tinyrenderer-clang": {
+      "link": "/usr/bin/tinyrenderer-clang"
+    },
+    "/usr/bin/ninja-clang": {
+      "bin": "ninja-clang/ninja-clang.wasm",
+      "mode": "0755",
+      "sha256": "fef189909e4995aa1212bf2a322a2f3cda598ab84d9349164746d8b48e2a2c3b",
+      "size": 247534,
+      "build": {
+        "project": "ninja-clang",
+        "cc2wasmFlags": [
+          "-Wl,-z,stack-size=1048576",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "ninja-build/ninja v1.12.1 (clang-simplified wasm/vendor/ninja)",
+          "commit": "66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b"
+        }
+      }
+    },
+    "/usr/bin/cpython-clang": {
+      "bin": "cpython-clang/cpython-clang.wasm",
+      "mode": "0755",
+      "sha256": "2c298fdbc85a02005088a2b0e3b2400d4e78653555f0ce2619e40bd10ce1ab98",
+      "size": 7636688,
+      "build": {
+        "project": "cpython-clang",
+        "cc2wasmFlags": [
+          "-include",
+          "gen/shim/ccprobe_clang.h",
+          "-DPy_BUILD_CORE",
+          "-DPREFIX=\"/usr/local\"",
+          "-DEXEC_PREFIX=\"/usr/local\"",
+          "-DVERSION=\"3.13\"",
+          "-DVPATH=\"\"",
+          "-DPLATLIBDIR=\"lib\"",
+          "-DPYTHONPATH=\"\"",
+          "-DPYTHONFRAMEWORK=\"\"",
+          "-DRTLD_NODELETE=0",
+          "-DRTLD_NOLOAD=0",
+          "-DSOABI=\"cpython-313-wasm32-gucos\"",
+          "-DABIFLAGS=\"\"",
+          "-DPY_CORE_CFLAGS=\"\"",
+          "-DPY_CORE_LDFLAGS=\"\"",
+          "-DPY_BUILD_CORE=1",
+          "-DPLATFORM=\"gucos\"",
+          "-DXML_NS=1",
+          "-DXML_DTD=1",
+          "-DBYTEORDER=1234",
+          "-DXML_CONTEXT_BYTES=1024",
+          "-DXML_GE=1",
+          "-DCONFIG_32",
+          "-DANSI",
+          "-DMODULE_NAME=\"sqlite3\"",
+          "-DSQLITE_WASI",
+          "-DSQLITE_THREADSAFE=0",
+          "-DSQLITE_OMIT_LOAD_EXTENSION=1",
+          "-DSQLITE_OMIT_WAL",
+          "-DSQLITE_MAX_MMAP_SIZE=0",
+          "-DSQLITE_DEFAULT_MEMSTATUS=0",
+          "-DSQLITE_OMIT_DEPRECATED",
+          "-DHAVE_USLEEP=1",
+          "-Igen",
+          "-Igen/shim",
+          "-Igen/Python",
+          "-IInclude/internal",
+          "-IInclude/internal/mimalloc",
+          "-IInclude",
+          "-IModules",
+          "-IModules/_hacl/include",
+          "-IModules/_hacl",
+          "-IModules/expat",
+          "-IModules/_blake2",
+          "-IModules/_decimal/libmpdec",
+          "-I../zlib/src",
+          "-I../sqlite",
+          "-Wl,-z,stack-size=8388608",
+          "-ffile-prefix-map=HOST=/src"
+        ],
+        "sourcePin": {
+          "repo": "python/cpython v3.13.5 (c-compiler vendor/cpython)",
+          "commit": "911e6a78475502c2cf50420050f7fd14b48f9a9b"
+        }
+      }
+    }
+  }
+}

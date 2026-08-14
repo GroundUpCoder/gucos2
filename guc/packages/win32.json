@@ -1,0 +1,39 @@
+{
+  "name": "win32",
+  "version": "1.0.0-gucos2",
+  "summary": "Win32 source library — build windows.h apps with the in-OS cc",
+  "deps": [ "freetype" ],
+  "files": {
+    "include":              { "tree": "os/win32/include" },
+    "src/fontcore.h":       { "text": "fontcore.h" },
+    "src/fontchain.h":      { "text": "fontchain.h" },
+    "src/wcwidth.h":        { "text": "wcwidth.h" },
+    "src/fileops.h":        { "text": "fileops.h" },
+    "src/sounds.h":         { "text": "sounds.h" },
+    "src/keys.h":           { "text": "keys.h" },
+    "src/wm_agent.h":       { "text": "wm_agent.h" },
+    "src/listdir.h":        { "text": "listdir.h" },
+    "src/cfgstore.h":       { "text": "cfgstore.h" },
+    "src/win32/user32.c":   { "text": "win32/user32.c" },
+    "src/win32/gdi32.c":    { "text": "win32/gdi32.c" },
+    "src/win32/gdi32w.c":   { "text": "win32/gdi32w.c" },
+    "src/win32/kernel32.c": { "text": "win32/kernel32.c" },
+    "src/win32/advapi32.c": { "text": "win32/advapi32.c" },
+    "src/win32/crt16.c":    { "text": "win32/crt16.c" },
+    "src/win32/shell32.c":  { "text": "win32/shell32.c" },
+    "src/win32/winmm.c":    { "text": "win32/winmm.c" },
+    "src/win32/comctl32.c": { "text": "win32/comctl32.c" },
+    "src/win32/listview.c": { "text": "win32/listview.c" },
+    "src/win32/comdlg32.c": { "text": "win32/comdlg32.c" },
+    "src/win32/ole32.c":    { "text": "win32/ole32.c" },
+    "src/win32/gdiplus.c":  { "text": "win32/gdiplus.c" },
+    "src/win32/menucore.c": { "text": "win32/menucore.c" },
+    "src/win32/menucore.h": { "text": "win32/menucore.h" },
+    "src/win32/win32_internal.h": { "text": "win32/win32_internal.h" },
+    "src/win32/wwinmain.c": { "text": "win32/wwinmain.c" }
+  },
+  "srclib": {
+    "include": [ "include" ],
+    "src": { "win32": "src/win32" }
+  }
+}

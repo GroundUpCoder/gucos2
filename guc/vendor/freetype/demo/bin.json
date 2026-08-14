@@ -1,0 +1,17 @@
+{
+  "name": "freetype-demo",
+  "description": "FreeType text rendering demo (renders TTF to BMP)",
+  "deps": [
+    "../lib.json"
+  ],
+  "includes": [
+    ".",
+    "../include"
+  ],
+  "dataFiles": {
+    "../../fonts/NotoSansMono-Regular.ttf": "/font.ttf"
+  },
+  "sources": [
+    "main.c"
+  ]
+}

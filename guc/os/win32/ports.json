@@ -1,0 +1,77 @@
+{
+  "description": "The 0060 Win32 port corpus (todos/WIN32.md). Targets for tools/win32ports.js; report in PORTS.md. expect: links | missing-symbols | parse-errors.",
+  "targets": [
+    {
+      "name": "gdidemo",
+      "project": "os/win32/gdidemo.json",
+      "expect": "links",
+      "notes": "control target \u2014 the 0057 acceptance app must stay fully covered"
+    },
+    {
+      "name": "ctldemo",
+      "project": "os/win32/ctldemo.json",
+      "expect": "links",
+      "notes": "control target \u2014 the 0058 acceptance app must stay fully covered"
+    },
+    {
+      "name": "k32demo",
+      "project": "os/win32/k32demo.json",
+      "expect": "links",
+      "notes": "control target \u2014 the 0059 acceptance app must stay fully covered"
+    },
+    {
+      "name": "paint",
+      "project": "os/win32/paint.json",
+      "expect": "links",
+      "notes": "control target \u2014 the 0107 Paint accessory (gdi32 canvas, comdlg32 BMP I/O); must stay fully covered"
+    },
+    {
+      "name": "winmine",
+      "project": "vendor/winmine/bin.json",
+      "expect": "links",
+      "notes": "ReactOS/Wine Minesweeper \u2014 the identity port, playable since 0068 (seeded as /bin/winmine)"
+    },
+    {
+      "name": "notepad",
+      "project": "vendor/notepad/bin.json",
+      "expect": "links",
+      "notes": "ReactOS notepad \u2014 usable since 0048 (seeded as /bin/notepad; EDIT-around-a-file, comdlg32 file dialogs, find/replace, status bar)"
+    },
+    {
+      "name": "calc",
+      "project": "vendor/calc/bin.json",
+      "expect": "links",
+      "notes": "ReactOS calc \u2014 playable since 0048 (seeded as /bin/calc; owner-draw keypad, clipboard, popup menus)"
+    },
+    {
+      "name": "fileman",
+      "project": "os/win32/fileman.json",
+      "expect": "links",
+      "notes": "the file manager (0092 ops, 0123 watch, #317 scrollbar) \u2014 shipped app, added by #318 W0 (the report omitted 5 shipped apps)"
+    },
+    {
+      "name": "ctlpanel",
+      "project": "os/win32/ctlpanel.json",
+      "expect": "links",
+      "notes": "the control panel (Display/Sounds/Screen Saver/Default Programs applets) \u2014 shipped app, added by #318 W0"
+    },
+    {
+      "name": "software",
+      "project": "os/win32/software.json",
+      "expect": "links",
+      "notes": "the software center (#81 storefront over gucman) \u2014 shipped app, added by #318 W0"
+    },
+    {
+      "name": "fontramp",
+      "project": "os/win32/fontramp.json",
+      "expect": "links",
+      "notes": "the C1/#281 multi-face font acceptance app \u2014 shipped app, added by #318 W0"
+    },
+    {
+      "name": "filepick",
+      "project": "os/win32/filepick.json",
+      "expect": "links",
+      "notes": "the 0433 file-dialogue picker \u2014 shipped app, added by #318 W0"
+    }
+  ]
+}

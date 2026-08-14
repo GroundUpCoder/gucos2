@@ -16,7 +16,18 @@ under `guc/vendor/libpng` plus its package definition; the already-retained
 zlib tree supplies libpng's `z` namespace. Desktop-only source and payloads
 were deleted: VT2, desktop WebGPU compositor, WM activation and chrome/text service, SDL terminal,
 Win32 veneer, GUI applications, games/emulators, fonts, sounds, decks and
-desktop samples. `guc/kernel.js` adds the browser-facing real-PTY session seam;
+desktop samples. Installable packages no longer follow that source-extraction
+boundary: the complete compatible application/library catalog is restored under
+`guc/packages` and `guc/vendor`, while the removed VT2 desktop shell itself stays
+absent. The two font definitions/assets come from `gucos-packages` commit
+`c4585591d7b4b1bc998d0d898bb14dcfc3376deb`. Native package payloads are checked
+in as verified overlay artifacts under `native-siblings/`, rebuilt from clean
+`clang-simplified` commit `66b268714b216e598e5bf3d6fdcdbbb32e9e6f3b`
+and clean `gucos-rust` commit `21ce8164bddfc1bb9fb160d19d1883d4c3590a34`.
+Cloudflare consumes these immutable producer outputs and does not run either
+toolchain. Both builds remap host source paths to `/src`; the public-boundary
+audit checks the overlays and unpacked package payloads. `guc/kernel.js` adds
+the browser-facing real-PTY session seam;
 `guc/os/kernel-worker.js` owns the typed tab protocol, selected-process surface
 broker, and tiny non-GUI init. `guc/os/os-common.js` adds the os-side guarded
 mutation seam (`fsSnapshot`/`writeFileGuarded`/`renameGuarded`) that the
@@ -73,8 +84,9 @@ verified file-by-file against a detached worktree at `2344fa80`:
   non-source remainder of libpng) — the sync script's vendor exclusion list
   is narrower than the fork's retained set, so a wholesale import would
   restore all of these.
-- 18 desktop package definitions deleted from `packages/` (cairodemo, demos,
-  doom, fonts, gameboy, libjpeg, libnsbmp/gif, mgba, …).
+- The original extraction deleted 18 desktop package definitions and their
+  payload closures. They were restored selectively in the package-parity port;
+  the runtime desktop shell remains deleted and is not baked into the image.
 - `vendor/jq/src/decNumber/*` — line endings only (repo `.gitattributes`
   normalizes upstream CRLF to LF at checkout); not a patch, and the sync
   guard ignores it.
